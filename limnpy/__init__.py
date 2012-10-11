@@ -68,39 +68,25 @@ class DictWriter(object):
     def __init__(self, 
                  id, 
                  name,
-                 rows,
                  date_key='date',
                  keys=None,
                  basedir='.',
                  types=None):
         self.id = id
         self.name = name
-        self.rows = rows
         self.date_key = date_key
+
+        # will be populate by actually writing rows
         self.start = None
         self.end = None
+        # will be populated by init_from_keys
+        self.writer = None
 
         # deal with defaults
 
-        if keys is None:
-            self.keys = sorted(reduce(set.__ior__, map(set,map(dict.keys, self.rows)), set()))
-            self.keys.remove(self.date_key)
-            self.keys.insert(0,self.date_key)
-        logging.info('using keys: %s', self.keys)
-
-        self.rows = sorted(rows, key=itemgetter(self.date_key))
-        self.start = rows[0][self.date_key]
-        self.end = rows[-1][self.date_key]
-
-        if types:
-            if isinstance(types[0], str):
-                self.types = types
-            else:
-                self.types = map(DictWriter.type_map.get, types)
-        else:
-            self.types = ['date'] + ['int']*(len(self.keys) - 1)
-        assert self.types[0] == 'date'
-            
+        if keys is not None:
+            self.init_form_keys()
+        
         self.csv_name = '%s.csv' % self.id
         self.yaml_name = '%s.yaml' % self.id
         
@@ -112,32 +98,61 @@ class DictWriter(object):
         if not os.path.isdir(self.datasource_dir):
             os.mkdir(self.datasource_dir)
 
-        # create dictwriter to write datafile
-        csv_path = os.path.join(self.datafile_dir, self.csv_name)
-        self.csv_file = open(csv_path, 'w')
-        self.writer = csv.DictWriter(self.csv_file, self.keys, restval='', extrasaction='ignore')
-        self.__write_rows__()
-        self.__write_datasource__()
+
+    @classmethod
+    def write(cls, id, name, rows):
+        dwriter = cls(id, name)
+        dwriter.write_rows(rows)
+        dwriter.write_datasource()
 
 
-    def __write_rows__(self):
-        for row in self.rows:
-            self.__write_row__(row)
-        self.csv_file.close()
+    def init_from_keys(self):
+        if not self.writer:
+            csv_path = os.path.join(self.datafile_dir, self.csv_name)
+            self.csv_file = open(csv_path, 'w')
+            self.writer = csv.DictWriter(self.csv_file, self.keys, restval='', extrasaction='ignore')
 
 
-    def __write_row__(self, row):
-        date_key = self.keys[0]
-        if self.start == None or row[date_key] < self.start:
+    def init_from_row(self, row):
+        logging.info('inferring keys from first row')
+        self.keys = sorted(row.keys())
+        self.keys.remove(self.date_key)
+        self.keys.insert(0,self.date_key)
+        self.init_from_keys()
+
+
+    def write_row(self, row):
+        if not self.writer:
+            self.init_from_row(row)
+
+        if self.start is None or row[date_key] < self.start:
             self.start = row[date_key]
-        if self.end == None or row[date_key] > self.end:
+        if self.end is None or row[date_key] > self.end:
             self.end = row[date_key]
-        if not isinstance(row[date_key], str):
+        if not isinstance(row[date_key], basestring):
             row[date_key] = row[date_key].strftime(DictWriter.date_fmt)
+
         self.writer.writerow(row)
 
 
-    def __write_datasource__(self):
+    def write_rows(self, rows):
+        rows = sorted(rows, key=itemgetter(self.date_key))
+        self.init_from_row(rows[0])
+        for row in rows:
+            self.write_row(row)
+        self.csv_file.close()
+
+
+    def write_header(self):
+        assert self.writer, 'writer has not been initialized. cannot write header row because don\'t know the keys'
+        self.writer.write_header()
+
+
+    def write_datasource(self):
+        assert self.writer, 'no rows have been written. cannot write datasource'
+
+        self.types = ['date'] + ['int']*(len(self.keys) - 1)
+
         meta = {}
         meta['id'] = self.id
         meta['name'] = self.name
