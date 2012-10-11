@@ -1,8 +1,8 @@
-import csv
-import yaml
-import os
+import csv, yaml
+import os, logging
 import datetime
 from operator import itemgetter
+
 
 class DictWriter(object):
     """
@@ -27,10 +27,9 @@ class DictWriter(object):
     here's a simple example (set up for doctest)
 
         >>> import limnpy, datetime
-        >>> writer = limnpy.DictWriter(['date', 'x', 'y'], 'evan_test', "Evan's Test")
         >>> rows = [{'date' : datetime.date(2012, 9, 1), 'x' : 1, 'y' : 2},
         ...         {'date' : datetime.date(2012, 10, 1), 'x' : 7, 'y' : 9},]
-        >>> writer.write_rows(rows)
+        >>> writer = limnpy.DictWriter('evan_test', "Evan's Test", rows)
         >>> print open('./datasources/evan_test.yaml').read().strip()
         chart:
           chartType: dygraphs
@@ -51,7 +50,7 @@ class DictWriter(object):
           end: 2012-10-01
           start: 2012-09-01
           step: 1d
-        url: /data/datafiles/evan_test.csv
+        url: ../datafiles/evan_test.csv
         >>> print open('./datafiles/evan_test.csv').read().strip() # doctest: +NORMALIZE_WHITESPACE
         2012/09/01,1,2
         2012/10/01,7,9
@@ -67,28 +66,45 @@ class DictWriter(object):
     date_fmt = '%Y/%m/%d'
 
     def __init__(self, 
-                 keys, 
                  id, 
-                 name, 
+                 name,
+                 rows,
+                 date_key='date',
+                 keys=None,
                  basedir='.',
                  types=None):
-        self.keys = keys
         self.id = id
         self.name = name
+        self.rows = rows
+        self.date_key = date_key
         self.start = None
         self.end = None
+
+        # deal with defaults
+
+        if keys is None:
+            self.keys = sorted(reduce(set.__ior__, map(set,map(dict.keys, self.rows)), set()))
+            self.keys.remove(self.date_key)
+            self.keys.insert(0,self.date_key)
+        logging.info('using keys: %s', self.keys)
+
+        self.rows = sorted(rows, key=itemgetter(self.date_key))
+        self.start = rows[0][self.date_key]
+        self.end = rows[-1][self.date_key]
+
         if types:
             if isinstance(types[0], str):
                 self.types = types
             else:
                 self.types = map(DictWriter.type_map.get, types)
         else:
-            self.types = ['date'] + ['int']*(len(keys) - 1)
+            self.types = ['date'] + ['int']*(len(self.keys) - 1)
         assert self.types[0] == 'date'
             
         self.csv_name = '%s.csv' % self.id
         self.yaml_name = '%s.yaml' % self.id
         
+        # check that output directories exist
         self.datafile_dir = os.path.join(basedir, 'datafiles')
         if not os.path.isdir(self.datafile_dir):
             os.mkdir(self.datafile_dir)
@@ -100,36 +116,34 @@ class DictWriter(object):
         csv_path = os.path.join(self.datafile_dir, self.csv_name)
         self.csv_file = open(csv_path, 'w')
         self.writer = csv.DictWriter(self.csv_file, self.keys, restval='', extrasaction='ignore')
+        self.__write_rows__()
+        self.__write_datasource__()
 
 
-    def write_rows(self, rows):
-        date_key = self.keys[0]
-        rows = sorted(rows, key=itemgetter(date_key))
-        self.start = rows[0][date_key]
-        self.end = rows[-1][date_key]
-        for row in rows:
-            self.write_row(row)
+    def __write_rows__(self):
+        for row in self.rows:
+            self.__write_row__(row)
         self.csv_file.close()
-        self.write_datasource()
 
 
-    def write_row(self, row):
+    def __write_row__(self, row):
         date_key = self.keys[0]
         if self.start == None or row[date_key] < self.start:
             self.start = row[date_key]
         if self.end == None or row[date_key] > self.end:
             self.end = row[date_key]
-        row[date_key] = row[date_key].strftime(DictWriter.date_fmt)
+        if not isinstance(row[date_key], str):
+            row[date_key] = row[date_key].strftime(DictWriter.date_fmt)
         self.writer.writerow(row)
 
 
-    def write_datasource(self):
+    def __write_datasource__(self):
         meta = {}
         meta['id'] = self.id
         meta['name'] = self.name
         meta['shortName'] = meta['name']
         meta['format'] = 'csv'
-        meta['url'] = '/data/datafiles/' + self.csv_name
+        meta['url'] = '../datafiles/' + self.csv_name
 
         timespan = {}
         timespan['start'] = self.start
