@@ -34,7 +34,7 @@ def write(id, name, rows, **kwargs):
           end: 2012-10-01
           start: 2012-09-01
           step: 1d
-        url: ../datafiles/evan_test.csv
+        url: /data/datafiles/evan_test.csv
         >>> print open('./datafiles/evan_test.csv').read().strip() # doctest: +NORMALIZE_WHITESPACE
         date,x,y
         2012/09/01,1,2
@@ -175,7 +175,7 @@ class DictWriter(object):
         meta['name'] = self.name
         meta['shortName'] = meta['name']
         meta['format'] = 'csv'
-        meta['url'] = '../datafiles/' + self.csv_name
+        meta['url'] = '/data/datafiles/' + self.csv_name
 
         timespan = {}
         timespan['start'] = self.start
