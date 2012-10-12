@@ -5,7 +5,7 @@ A library for creating [limn](https://github.com/wikimedia/limn) compatible data
 
 ## Introduction
 
-[`limn`](github.com/wikimedia/limn) a visualization tool for non-programmers, still requires at least one or two programmers
+[`limn`](github.com/wikimedia/limn), a visualization tool for non-programmers, still requires at least one or two programmers
 to generate the datasources which can be plotted.  In order to make a timeseries available for plotting with `limn`
 you need to generate an appropriately formatted csv file (known as a `datafile`) as well as a valid YAML file with metadata
 (known as a `datasource`). `limnpy` aims to solve the simple cases where you've prepared the timeseries data and
