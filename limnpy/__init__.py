@@ -4,6 +4,47 @@ import datetime
 from operator import itemgetter
 
 
+
+def write(id, name, rows, **kwargs):
+    """
+    Intsance level convience method for carrying out all of the steps
+    necessary to write a datafile and datasource
+
+        >>> import limnpy, datetime
+        >>> rows = [{'date' : datetime.date(2012, 9, 1), 'x' : 1, 'y' : 2},
+        ...         {'date' : datetime.date(2012, 10, 1), 'x' : 7, 'y' : 9},]
+        >>> limnpy.write('evan_test', "Evan's Test", rows)
+        >>> print open('./datasources/evan_test.yaml').read().strip()
+        chart:
+          chartType: dygraphs
+        columns:
+          labels:
+          - date
+          - x
+          - y
+          types:
+          - date
+          - int
+          - int
+        format: csv
+        id: evan_test
+        name: Evan's Test
+        shortName: Evan's Test
+        timespan:
+          end: 2012-10-01
+          start: 2012-09-01
+          step: 1d
+        url: ../datafiles/evan_test.csv
+        >>> print open('./datafiles/evan_test.csv').read().strip() # doctest: +NORMALIZE_WHITESPACE
+        2012/09/01,1,2
+        2012/10/01,7,9
+        >>>
+    """
+    dwriter = DictWriter(id, name, **kwargs)
+    dwriter.write_rows(rows)
+    dwriter.write_datasource()
+
+
 class DictWriter(object):
     """
     This class is a tool for writing limn compatible 'datasources' and 'datafiles'. It 
@@ -26,10 +67,12 @@ class DictWriter(object):
 
     here's a simple example (set up for doctest)
 
-        >>> import limnpy, datetime
+
+        >>> import limnpy, datetime, pprint
+        >>> writer = limnpy.DictWriter('evan_test', "Evan's Test", keys=['date', 'x', 'y'])
         >>> rows = [{'date' : datetime.date(2012, 9, 1), 'x' : 1, 'y' : 2},
         ...         {'date' : datetime.date(2012, 10, 1), 'x' : 7, 'y' : 9},]
-        >>> writer = limnpy.DictWriter('evan_test', "Evan's Test", rows)
+        >>> writer.write_rows(rows)
         >>> print open('./datasources/evan_test.yaml').read().strip()
         chart:
           chartType: dygraphs
@@ -74,6 +117,7 @@ class DictWriter(object):
                  types=None):
         self.id = id
         self.name = name
+        self.keys = keys
         self.date_key = date_key
 
         # will be populate by actually writing rows
@@ -82,14 +126,6 @@ class DictWriter(object):
         # will be populated by init_from_keys
         self.writer = None
 
-        # deal with defaults
-
-        if keys is not None:
-            self.init_form_keys()
-        
-        self.csv_name = '%s.csv' % self.id
-        self.yaml_name = '%s.yaml' % self.id
-        
         # check that output directories exist
         self.datafile_dir = os.path.join(basedir, 'datafiles')
         if not os.path.isdir(self.datafile_dir):
@@ -97,13 +133,13 @@ class DictWriter(object):
         self.datasource_dir = os.path.join(basedir, 'datasources')
         if not os.path.isdir(self.datasource_dir):
             os.mkdir(self.datasource_dir)
+        self.csv_name = '%s.csv' % self.id
+        self.yaml_name = '%s.yaml' % self.id
 
+        # sets up a writer instance if we can
+        if self.keys is not None:
+            self.init_from_keys()
 
-    @classmethod
-    def write(cls, id, name, rows):
-        dwriter = cls(id, name)
-        dwriter.write_rows(rows)
-        dwriter.write_datasource()
 
 
     def init_from_keys(self):
@@ -125,12 +161,12 @@ class DictWriter(object):
         if not self.writer:
             self.init_from_row(row)
 
-        if self.start is None or row[date_key] < self.start:
-            self.start = row[date_key]
-        if self.end is None or row[date_key] > self.end:
-            self.end = row[date_key]
-        if not isinstance(row[date_key], basestring):
-            row[date_key] = row[date_key].strftime(DictWriter.date_fmt)
+        if self.start is None or row[self.date_key] < self.start:
+            self.start = row[self.date_key]
+        if self.end is None or row[self.date_key] > self.end:
+            self.end = row[self.date_key]
+        if not isinstance(row[self.date_key], basestring):
+            row[self.date_key] = row[self.date_key].strftime(DictWriter.date_fmt)
 
         self.writer.writerow(row)
 
@@ -138,6 +174,7 @@ class DictWriter(object):
     def write_rows(self, rows):
         rows = sorted(rows, key=itemgetter(self.date_key))
         self.init_from_row(rows[0])
+        self.write_header()
         for row in rows:
             self.write_row(row)
         self.csv_file.close()
