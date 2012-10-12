@@ -36,13 +36,14 @@ def write(id, name, rows, **kwargs):
           step: 1d
         url: ../datafiles/evan_test.csv
         >>> print open('./datafiles/evan_test.csv').read().strip() # doctest: +NORMALIZE_WHITESPACE
+        date,x,y
         2012/09/01,1,2
         2012/10/01,7,9
         >>>
     """
     dwriter = DictWriter(id, name, **kwargs)
-    dwriter.write_rows(rows)
-    dwriter.write_datasource()
+    dwriter.writerows(rows)
+    dwriter.writesource()
 
 
 class DictWriter(object):
@@ -65,40 +66,24 @@ class DictWriter(object):
                   the keys argument. If the arg is omitted the types will be set to 
                      ['date', 'int', 'int', ...]
 
-    here's a simple example (set up for doctest)
+    here's a simple example (set up for doctest) which shows a more granular way of controlling
+    the construction of the limn files
 
-
-        >>> import limnpy, datetime, pprint
-        >>> writer = limnpy.DictWriter('evan_test', "Evan's Test", keys=['date', 'x', 'y'])
+        >>> import limnpy, datetime
+        >>> writer = limnpy.DictWriter('evan_test2', "Evan's Test", keys=['date', 'x', 'y'])
         >>> rows = [{'date' : datetime.date(2012, 9, 1), 'x' : 1, 'y' : 2},
         ...         {'date' : datetime.date(2012, 10, 1), 'x' : 7, 'y' : 9},]
-        >>> writer.write_rows(rows)
-        >>> print open('./datasources/evan_test.yaml').read().strip()
-        chart:
-          chartType: dygraphs
-        columns:
-          labels:
-          - date
-          - x
-          - y
-          types:
-          - date
-          - int
-          - int
-        format: csv
-        id: evan_test
-        name: Evan's Test
-        shortName: Evan's Test
-        timespan:
-          end: 2012-10-01
-          start: 2012-09-01
-          step: 1d
-        url: ../datafiles/evan_test.csv
-        >>> print open('./datafiles/evan_test.csv').read().strip() # doctest: +NORMALIZE_WHITESPACE
-        2012/09/01,1,2
-        2012/10/01,7,9
+        >>> for row in rows:
+        ...     writer.writerow(row)
+        ... 
+        >>> writer.writesource()
+        >>> hash(open('./datasources/evan_test.yaml').read())
+        6822614103596541812
+        >>> hash(open('./datafiles/evan_test.csv').read())
+        -3310066083987888095
         >>>
     """
+
 
 
     type_map = {int : 'int',
@@ -138,15 +123,16 @@ class DictWriter(object):
 
         # sets up a writer instance if we can
         if self.keys is not None:
-            self.init_from_keys()
+            self.init_keys()
 
 
 
-    def init_from_keys(self):
+    def init_keys(self):
         if not self.writer:
             csv_path = os.path.join(self.datafile_dir, self.csv_name)
             self.csv_file = open(csv_path, 'w')
             self.writer = csv.DictWriter(self.csv_file, self.keys, restval='', extrasaction='ignore')
+            self.writer.writeheader()
 
 
     def init_from_row(self, row):
@@ -154,10 +140,10 @@ class DictWriter(object):
         self.keys = sorted(row.keys())
         self.keys.remove(self.date_key)
         self.keys.insert(0,self.date_key)
-        self.init_from_keys()
+        self.init_keys()
 
 
-    def write_row(self, row):
+    def writerow(self, row):
         if not self.writer:
             self.init_from_row(row)
 
@@ -171,21 +157,15 @@ class DictWriter(object):
         self.writer.writerow(row)
 
 
-    def write_rows(self, rows):
+    def writerows(self, rows):
         rows = sorted(rows, key=itemgetter(self.date_key))
         self.init_from_row(rows[0])
-        self.write_header()
         for row in rows:
-            self.write_row(row)
+            self.writerow(row)
         self.csv_file.close()
 
 
-    def write_header(self):
-        assert self.writer, 'writer has not been initialized. cannot write header row because don\'t know the keys'
-        self.writer.write_header()
-
-
-    def write_datasource(self):
+    def writesource(self):
         assert self.writer, 'no rows have been written. cannot write datasource'
 
         self.types = ['date'] + ['int']*(len(self.keys) - 1)
