@@ -283,6 +283,17 @@ def metric(source, index, col_key, color=None):
         }
     return metric
 
+def get_color_map(n):
+    # get colorspace based on number of metrics
+    family = colorbrewer.Spectral
+    if n < 3:
+        color_map = family[3][:n]
+    elif n > 12:
+        logging.warning('too many metrics, looping over color space')
+        color_map = itertools.cycle(family[12])
+    else:
+        color_map = family[n]
+    return color_map
 
 def writegraph(slug, name, sources, metric_ids=None, basedir='.', meta={}, options={}):
     """
@@ -323,19 +334,10 @@ def writegraph(slug, name, sources, metric_ids=None, basedir='.', meta={}, optio
     if metric_ids is None:
         metric_ids = []
         for source in sources:
-            for col_id in range(len(source['columns']['labels'])):
+            for col_id in range(1, len(source['columns']['labels'])):
                 metric_ids.append((source['id'], col_id))
 
-    # get colorspace based on number of metrics
-    n = len(metric_ids)
-    family = colorbrewer.Spectral
-    if n < 3:
-        color_map = family[3][:n]
-    elif n > 12:
-        logging.warning('too many metrics, looping over color space')
-        color_map = itertools.cycle(family[12])
-    else:
-        color_map = family[n]
+    color_map = get_color_map(len(metric_ids))
 
     metrics = []
     source_dict = {source['id'] : source for source in sources}
