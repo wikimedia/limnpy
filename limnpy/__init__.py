@@ -1,8 +1,10 @@
-import csv, yaml
+import csv, yaml, json
 import os, logging
 import datetime
 from operator import itemgetter
-from collections import MutableSequence
+from collections import Sequence, MutableSequence
+import codecs
+import colorbrewer
 
 limn_date_fmt = '%Y/%m/%d'
 
@@ -14,7 +16,7 @@ def write(id, name, keys, rows, **kwargs):
         >>> import limnpy, datetime
         >>> rows = [[datetime.date(2012, 9, 1), 1, 2],
         ...         [datetime.date(2012, 10, 1), 7, 9]]
-        >>> limnpy.write('write_test', 'Write Test', rows, ['date', 'x', 'y'])
+        >>> source = limnpy.write('write_test', 'Write Test', ['date', 'x', 'y'], rows)
         >>> print open('./datasources/write_test.yaml').read().strip()
         chart:
           chartType: dygraphs
@@ -44,7 +46,7 @@ def write(id, name, keys, rows, **kwargs):
     """
     writer = Writer(id, name, keys, **kwargs)
     writer.writerows(rows)
-    writer.writesource()
+    return writer.writesource()
 
 
 def writedicts(id, name, rows, **kwargs):
@@ -55,7 +57,7 @@ def writedicts(id, name, rows, **kwargs):
         >>> import limnpy, datetime
         >>> rows = [{'date' : datetime.date(2012, 9, 1), 'x' : 1, 'y' : 2},
         ...         {'date' : datetime.date(2012, 10, 1), 'x' : 7, 'y' : 9},]
-        >>> limnpy.writedicts('writedicts_test', "Write Dicts Test", rows)
+        >>> source = limnpy.writedicts('writedicts_test', "Write Dicts Test", rows)
         >>> print open('./datasources/writedicts_test.yaml').read().strip()
         chart:
           chartType: dygraphs
@@ -85,7 +87,7 @@ def writedicts(id, name, rows, **kwargs):
     """
     dwriter = DictWriter(id, name, **kwargs)
     dwriter.writerows(rows)
-    dwriter.writesource()
+    return dwriter.writesource()
 
 
 class Writer(object):
@@ -102,7 +104,7 @@ class Writer(object):
         self.keys = keys
         self.date_key = date_key
 
-        # will be populate by actually writing rows
+        # will be populated by actually writing rows
         self.start = None
         self.end = None
         self.writer = None
@@ -125,7 +127,7 @@ class Writer(object):
     def init_keys(self):
         if not self.writer:
             csv_path = os.path.join(self.datafile_dir, self.csv_name)
-            self.csv_file = open(csv_path, 'w')
+            self.csv_file = codecs.open(csv_path, encoding='utf-8', mode='w')
             self.writer = csv.writer(self.csv_file)
             self.writer.writerow(self.keys)
 
@@ -143,7 +145,7 @@ class Writer(object):
         if self.end is None or row[self.date_key] > self.end:
             self.end = row[self.date_key]
         if not isinstance(row[self.date_key], basestring):
-            if not isinstance(row, MutableSequence):
+            if isinstance(row, Sequence) and not isinstance(row, MutableSequence):
                 row = list(row)
             row[self.date_key] = row[self.date_key].strftime(limn_date_fmt)
         self.writer.writerow(row)
@@ -181,6 +183,7 @@ class Writer(object):
         fyaml = open(yaml_path, 'w')
         fyaml.write(yaml.safe_dump(meta, default_flow_style=False))
         fyaml.close()
+        return meta
 
 
 class DictWriter(Writer):
@@ -213,7 +216,7 @@ class DictWriter(Writer):
         >>> for row in rows:
         ...     writer.writerow(row)
         ... 
-        >>> writer.writesource()
+        >>> s = writer.writesource()
         >>> writer.flush()
         >>> hash(open('./datasources/dictwriter_test.yaml').read())
         2318934412299633258
@@ -223,16 +226,17 @@ class DictWriter(Writer):
     """
 
     def __init__(self, *args, **kwargs):
-        kwargs['date_key'] = 'date'
         if 'keys' not in kwargs:
             kwargs['keys'] = None
         super(DictWriter, self).__init__(*args, **kwargs)
+        if 'date_key' not in kwargs:
+            self.date_key = 'date'
 
 
     def init_keys(self):
         if not self.writer:
             csv_path = os.path.join(self.datafile_dir, self.csv_name)
-            self.csv_file = open(csv_path, 'w')
+            self.csv_file = codecs.open(csv_path, encoding='utf-8', mode='w')
             self.writer = csv.DictWriter(self.csv_file, self.keys, restval='', extrasaction='ignore')
             self.writer.writeheader()
 
@@ -253,4 +257,110 @@ class DictWriter(Writer):
         super(DictWriter, self).writerow(row)
 
 
+def metric(source, index, col_key, color=None):
+    if isinstance(col_key, basestring):
+        col_key = source['columns']['labels'].index(col_key)
+    assert isinstance(col_key, int), 'col_key must either be a column index as an int or column label as a str'
+    metric = {
+        "index": index,
+        "scale": 1,
+        "timespan": {
+            "start": None,
+            "step": None,
+            "end": None
+            },
+        "color": color,
+        "format_axis": None,
+        "label": "",
+        "disabled": False,
+        "visible": True,
+        "format_value": None,
+        "transforms": [],
+        "source_id": source['id'],
+        "chartType": None,
+        "type": "int",
+        "source_col": col_key
+        }
+    return metric
 
+
+def writegraph(slug, name, sources, metric_ids, basedir='.', meta={}, options={}):
+    """
+    Creates limn compatible graph file with the provided options.
+
+        >>> import limnpy, datetime
+        >>> rows1 = [[datetime.date(2012, 9, 1), 1, 2],
+        ...         [datetime.date(2012, 10, 1), 7, 9]]
+        >>> s1 = limnpy.write('source1', 'Source 1', ['date', 'x', 'y'], rows1)
+        >>> rows2 = [[datetime.date(2012, 9, 1), 19, 22],
+        ...         [datetime.date(2012, 10, 1), 27, 29]]
+        >>> s2 = limnpy.write('source2', 'Source 2', ['date', 'x', 'y'], rows2)
+        >>> limnpy.writegraph('my_first_autograph', 'My First Autograph', [s1, s2], [('source1', 'x'), ('source2', 'y')])
+        >>> hash(open('./graphs/my_first_autograph.json').read())
+        6689682499226627506
+    """
+    
+
+    graphdir = os.path.join(basedir, 'graphs')
+    if not os.path.isdir(graphdir):
+        os.mkdir(graphdir)
+    graph_fn = os.path.join(graphdir, '%s.json' % slug)
+
+    source_dict = {source['id'] : source for source in sources}
+    metrics = []
+
+    # get colorspace based on number of metrics
+    n = len(metric_ids)
+    family = colorbrewer.Spectral
+    if n < 3:
+        color_map = family[3][:n]
+    elif n > 12:
+        logging.warning('too many metrics, looping over color space')
+        color_map = itertools.cycle(family[12])
+    else:
+        color_map = family[n]
+
+    for i, (source_id, col_key) in enumerate(metric_ids):
+        source = source_dict[source_id]
+        try:
+            m = metric(source_dict[source_id], i, col_key, color_map[i])
+            metrics.append(m)
+        except ValueError:
+            logging.warning('Could not find column label: %s in datasource: %s', col_key, source['id'])
+
+        
+    graph = {
+        "name": name,
+        "notes": "",
+        "callout": {
+            "enabled": True,
+            "metric_idx": 0,
+            "label": ""
+            },
+        "slug": "ar_wp_active",
+        "width": "auto",
+        "parents": ["root"],
+        "result": "ok",
+        "id": slug,
+        "chartType": "dygraphs",
+        "height": 320,
+        "data": {
+            "metrics": metrics,
+            "palette": None,
+            "lines": []
+            },
+        "options": {
+            "strokeWidth": 4,
+            "pointSize": 3,
+            "drawPoints": True
+            },
+        "desc": ""
+        }
+
+    for name, val in meta:
+        graphs[name] = val
+
+    for name, val in options:
+        graphs['options'][name] = val
+    
+    json.dump(graph, codecs.open(graph_fn, encoding='utf-8', mode='w'), indent=2)
