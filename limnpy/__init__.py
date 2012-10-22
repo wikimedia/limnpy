@@ -284,7 +284,7 @@ def metric(source, index, col_key, color=None):
     return metric
 
 
-def writegraph(slug, name, sources, metric_ids, basedir='.', meta={}, options={}):
+def writegraph(slug, name, sources, metric_ids=None, basedir='.', meta={}, options={}):
     """
     Creates limn compatible graph file with the provided options.
 
@@ -297,17 +297,34 @@ def writegraph(slug, name, sources, metric_ids, basedir='.', meta={}, options={}
         >>> s2 = limnpy.write('source2', 'Source 2', ['date', 'x', 'y'], rows2)
         >>> limnpy.writegraph('my_first_autograph', 'My First Autograph', [s1, s2], [('source1', 'x'), ('source2', 'y')])
         >>> hash(open('./graphs/my_first_autograph.json').read())
-        6689682499226627506
+        -6544027546604027079
+
+    or just pass in the sources and a graph will be constructed containing all of the columns
+    in all of the sources
+
+        >>> import limnpy, datetime
+        >>> rows1 = [[datetime.date(2012, 9, 1), 1, 2],
+        ...         [datetime.date(2012, 10, 1), 7, 9]]
+        >>> s1 = limnpy.write('source1', 'Source 1', ['date', 'x', 'y'], rows1)
+        >>> rows2 = [[datetime.date(2012, 9, 1), 19, 22],
+        ...         [datetime.date(2012, 10, 1), 27, 29]]
+        >>> s2 = limnpy.write('source2', 'Source 2', ['date', 'x', 'y'], rows2)
+        >>> limnpy.writegraph('my_first_default_autograph', 'My First Default Autograph', [s1, s2])
+        >>> hash(open('./graphs/my_first_default_autograph.json').read())
+        -9151737922308482552
+
     """
-    
 
     graphdir = os.path.join(basedir, 'graphs')
     if not os.path.isdir(graphdir):
         os.mkdir(graphdir)
     graph_fn = os.path.join(graphdir, '%s.json' % slug)
 
-    source_dict = {source['id'] : source for source in sources}
-    metrics = []
+    if metric_ids is None:
+        metric_ids = []
+        for source in sources:
+            for col_id in range(len(source['columns']['labels'])):
+                metric_ids.append((source['id'], col_id))
 
     # get colorspace based on number of metrics
     n = len(metric_ids)
@@ -320,6 +337,8 @@ def writegraph(slug, name, sources, metric_ids, basedir='.', meta={}, options={}
     else:
         color_map = family[n]
 
+    metrics = []
+    source_dict = {source['id'] : source for source in sources}
     for i, (source_id, col_key) in enumerate(metric_ids):
         source = source_dict[source_id]
         try:
@@ -327,7 +346,7 @@ def writegraph(slug, name, sources, metric_ids, basedir='.', meta={}, options={}
             metrics.append(m)
         except ValueError:
             logging.warning('Could not find column label: %s in datasource: %s', col_key, source['id'])
-
+    
         
     graph = {
         "name": name,
