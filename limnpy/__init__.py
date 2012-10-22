@@ -2,19 +2,20 @@ import csv, yaml
 import os, logging
 import datetime
 from operator import itemgetter
+from collections import MutableSequence
 
+limn_date_fmt = '%Y/%m/%d'
 
-
-def write(id, name, rows, **kwargs):
+def write(id, name, keys, rows, **kwargs):
     """
     Intsance level convience method for carrying out all of the steps
     necessary to write a datafile and datasource
 
         >>> import limnpy, datetime
-        >>> rows = [{'date' : datetime.date(2012, 9, 1), 'x' : 1, 'y' : 2},
-        ...         {'date' : datetime.date(2012, 10, 1), 'x' : 7, 'y' : 9},]
-        >>> limnpy.write('evan_test', "Evan's Test", rows)
-        >>> print open('./datasources/evan_test.yaml').read().strip()
+        >>> rows = [[datetime.date(2012, 9, 1), 1, 2],
+        ...         [datetime.date(2012, 10, 1), 7, 9]]
+        >>> limnpy.write('write_test', 'Write Test', rows, ['date', 'x', 'y'])
+        >>> print open('./datasources/write_test.yaml').read().strip()
         chart:
           chartType: dygraphs
         columns:
@@ -27,15 +28,56 @@ def write(id, name, rows, **kwargs):
           - int
           - int
         format: csv
-        id: evan_test
-        name: Evan's Test
-        shortName: Evan's Test
+        id: write_test
+        name: Write Test
+        shortName: Write Test
         timespan:
           end: 2012-10-01
           start: 2012-09-01
           step: 1d
-        url: /data/datafiles/evan_test.csv
-        >>> print open('./datafiles/evan_test.csv').read().strip() # doctest: +NORMALIZE_WHITESPACE
+        url: /data/datafiles/write_test.csv
+        >>> print open('./datafiles/write_test.csv').read().strip() # doctest: +NORMALIZE_WHITESPACE
+        date,x,y
+        2012/09/01,1,2
+        2012/10/01,7,9
+        >>>
+    """
+    writer = Writer(id, name, keys, **kwargs)
+    writer.writerows(rows)
+    writer.writesource()
+
+
+def writedicts(id, name, rows, **kwargs):
+    """
+    Intsance level convience method for carrying out all of the steps
+    necessary to write a datafile and datasource
+
+        >>> import limnpy, datetime
+        >>> rows = [{'date' : datetime.date(2012, 9, 1), 'x' : 1, 'y' : 2},
+        ...         {'date' : datetime.date(2012, 10, 1), 'x' : 7, 'y' : 9},]
+        >>> limnpy.writedicts('writedicts_test', "Write Dicts Test", rows)
+        >>> print open('./datasources/writedicts_test.yaml').read().strip()
+        chart:
+          chartType: dygraphs
+        columns:
+          labels:
+          - date
+          - x
+          - y
+          types:
+          - date
+          - int
+          - int
+        format: csv
+        id: writedicts_test
+        name: Write Dicts Test
+        shortName: Write Dicts Test
+        timespan:
+          end: 2012-10-01
+          start: 2012-09-01
+          step: 1d
+        url: /data/datafiles/writedicts_test.csv
+        >>> print open('./datafiles/writedicts_test.csv').read().strip() # doctest: +NORMALIZE_WHITESPACE
         date,x,y
         2012/09/01,1,2
         2012/10/01,7,9
@@ -46,58 +88,13 @@ def write(id, name, rows, **kwargs):
     dwriter.writesource()
 
 
-class DictWriter(object):
-    """
-    This class is a tool for writing limn compatible 'datasources' and 'datafiles'. It 
-    emulates the csv.DictWriter class in that it provides a way to write a collection
-    of dicts to file, where each dict represents a 'row' in the traditional sense.  Like 
-    DictWriter, because dicts are unordered, the constructor takes in an ordered collection
-    of keys to determine the ordering of the columns in the output file.  The constructor also 
-    takes in a variety of limn-specific parameters
-
-    parameters:
-      keys      : list of keys used to extract the ordering of columns from each dict
-      id        : the datasource unique id which will be used as a unique id by limn
-      name      : the human-readable datasource name which will be displayed in the browser
-      basedir   : the diretory in which to optionally create the `datasources`, and `datafiles`
-                  directories into which the datasoures and datafiles themselves will be 
-                  respectively added
-      types     : list of types or javascript type strings correponding to each key given by 
-                  the keys argument. If the arg is omitted the types will be set to 
-                     ['date', 'int', 'int', ...]
-
-    here's a simple example (set up for doctest) which shows a more granular way of controlling
-    the construction of the limn files
-
-        >>> import limnpy, datetime
-        >>> writer = limnpy.DictWriter('evan_test2', "Evan's Test", keys=['date', 'x', 'y'])
-        >>> rows = [{'date' : datetime.date(2012, 9, 1), 'x' : 1, 'y' : 2},
-        ...         {'date' : datetime.date(2012, 10, 1), 'x' : 7, 'y' : 9},]
-        >>> for row in rows:
-        ...     writer.writerow(row)
-        ... 
-        >>> writer.writesource()
-        >>> hash(open('./datasources/evan_test.yaml').read())
-        6822614103596541812
-        >>> hash(open('./datafiles/evan_test.csv').read())
-        -3310066083987888095
-        >>>
-    """
-
-
-
-    type_map = {int : 'int',
-                float : 'int',
-                datetime.datetime : 'date',
-                datetime.date : 'date'}
-
-    date_fmt = '%Y/%m/%d'
+class Writer(object):
 
     def __init__(self, 
                  id, 
                  name,
-                 date_key='date',
-                 keys=None,
+                 keys,
+                 date_key=0,
                  basedir='.',
                  types=None):
         self.id = id
@@ -108,7 +105,6 @@ class DictWriter(object):
         # will be populate by actually writing rows
         self.start = None
         self.end = None
-        # will be populated by init_from_keys
         self.writer = None
 
         # check that output directories exist
@@ -126,44 +122,34 @@ class DictWriter(object):
             self.init_keys()
 
 
-
     def init_keys(self):
         if not self.writer:
             csv_path = os.path.join(self.datafile_dir, self.csv_name)
             self.csv_file = open(csv_path, 'w')
-            self.writer = csv.DictWriter(self.csv_file, self.keys, restval='', extrasaction='ignore')
-            self.writer.writeheader()
+            self.writer = csv.writer(self.csv_file)
+            self.writer.writerow(self.keys)
 
 
-    def init_from_row(self, row):
-        logging.info('inferring keys from first row')
-        self.keys = sorted(row.keys())
-        self.keys.remove(self.date_key)
-        self.keys.insert(0,self.date_key)
-        self.init_keys()
+    def writerows(self, rows):
+        rows = sorted(rows, key=itemgetter(self.date_key))
+        for row in rows:
+            self.writerow(row)
+        self.flush()
 
 
     def writerow(self, row):
-        if not self.writer:
-            self.init_from_row(row)
-
         if self.start is None or row[self.date_key] < self.start:
             self.start = row[self.date_key]
         if self.end is None or row[self.date_key] > self.end:
             self.end = row[self.date_key]
         if not isinstance(row[self.date_key], basestring):
-            row[self.date_key] = row[self.date_key].strftime(DictWriter.date_fmt)
-
+            if not isinstance(row, MutableSequence):
+                row = list(row)
+            row[self.date_key] = row[self.date_key].strftime(limn_date_fmt)
         self.writer.writerow(row)
 
-
-    def writerows(self, rows):
-        rows = sorted(rows, key=itemgetter(self.date_key))
-        self.init_from_row(rows[0])
-        for row in rows:
-            self.writerow(row)
-        self.csv_file.close()
-
+    def flush(self):
+        self.csv_file.flush()
 
     def writesource(self):
         assert self.writer, 'no rows have been written. cannot write datasource'
@@ -195,4 +181,76 @@ class DictWriter(object):
         fyaml = open(yaml_path, 'w')
         fyaml.write(yaml.safe_dump(meta, default_flow_style=False))
         fyaml.close()
+
+
+class DictWriter(Writer):
+    """
+    This class is a tool for writing limn compatible 'datasources' and 'datafiles'. It 
+    emulates the csv.DictWriter class in that it provides a way to write a collection
+    of dicts to file, where each dict represents a 'row' in the traditional sense.  Like 
+    DictWriter, because dicts are unordered, the constructor takes in an ordered collection
+    of keys to determine the ordering of the columns in the output file.  The constructor also 
+    takes in a variety of limn-specific parameters
+
+    parameters:
+      keys      : list of keys used to extract the ordering of columns from each dict
+      id        : the datasource unique id which will be used as a unique id by limn
+      name      : the human-readable datasource name which will be displayed in the browser
+      basedir   : the diretory in which to optionally create the `datasources`, and `datafiles`
+                  directories into which the datasoures and datafiles themselves will be 
+                  respectively added
+      types     : list of types or javascript type strings correponding to each key given by 
+                  the keys argument. If the arg is omitted the types will be set to 
+                     ['date', 'int', 'int', ...]
+
+    here's a simple example (set up for doctest) which shows a more granular way of controlling
+    the construction of the limn files
+
+        >>> import limnpy, datetime
+        >>> writer = limnpy.DictWriter('dictwriter_test', "DictWriter Test", keys=['date', 'x', 'y'])
+        >>> rows = [{'date' : datetime.date(2012, 9, 1), 'x' : 1, 'y' : 2},
+        ...         {'date' : datetime.date(2012, 10, 1), 'x' : 7, 'y' : 9},]
+        >>> for row in rows:
+        ...     writer.writerow(row)
+        ... 
+        >>> writer.writesource()
+        >>> writer.flush()
+        >>> hash(open('./datasources/dictwriter_test.yaml').read())
+        2318934412299633258
+        >>> hash(open('./datafiles/dictwriter_test.csv').read())
+        -3310066083987888095
+        >>>
+    """
+
+    def __init__(self, *args, **kwargs):
+        kwargs['date_key'] = 'date'
+        if 'keys' not in kwargs:
+            kwargs['keys'] = None
+        super(DictWriter, self).__init__(*args, **kwargs)
+
+
+    def init_keys(self):
+        if not self.writer:
+            csv_path = os.path.join(self.datafile_dir, self.csv_name)
+            self.csv_file = open(csv_path, 'w')
+            self.writer = csv.DictWriter(self.csv_file, self.keys, restval='', extrasaction='ignore')
+            self.writer.writeheader()
+
+
+    def init_from_row(self, row):
+        logging.debug('inferring keys from first row')
+        self.keys = sorted(row.keys())
+        self.keys.remove(self.date_key)
+        self.keys.insert(0,self.date_key)
+        self.init_keys()
+
+
+    def writerow(self, row):
+        # dict writer differs from writer in that it requires the keys before
+        # it can write a row, so it figures out the keys on the first row
+        if not self.writer:
+            self.init_from_row(row)
+        super(DictWriter, self).writerow(row)
+
+
 
