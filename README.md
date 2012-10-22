@@ -41,9 +41,9 @@ limnpy.write('evan_test', 'Evan Test')
 ````
 which should create the files `./datasources/evan_test.yaml` and `./datafiles/evan_test.csv`
 
-`write` to should really handle any cases, but if you want a little more control over the process
+`write` should really handle most cases, but if you want a little more control over the process
 you can write each row individually and write the datasource file explicitly.  `limnpy` contains a class
-called `DictWriter` whose interface is designed to emulate the `csv` module's `DictWriter class`.
+called `DictWriter` whose interface is designed to emulate the `csv` module's `DictWriter` class.
 
 ````python
 writer = limnpy.DictWriter('evan_test', "Evan's Test", keys=['date', 'x', 'y'])
