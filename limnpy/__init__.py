@@ -5,6 +5,9 @@ from operator import itemgetter
 from collections import Sequence, MutableSequence
 import codecs
 import colorbrewer
+import itertools
+
+logger = logging.getLogger(__name__)
 
 limn_date_fmt = '%Y/%m/%d'
 
@@ -44,6 +47,9 @@ def write(id, name, keys, rows, **kwargs):
         2012/10/01,7,9
         >>>
     """
+    if not rows:
+        logger.warning('no datafile or datasource created because rows is empty')
+        return None
     writer = Writer(id, name, keys, **kwargs)
     writer.writerows(rows)
     return writer.writesource()
@@ -85,6 +91,9 @@ def writedicts(id, name, rows, **kwargs):
         2012/10/01,7,9
         >>>
     """
+    if not rows:
+        logger.warning('no datafile or datasource created because rows is empty')
+        return None
     dwriter = DictWriter(id, name, **kwargs)
     dwriter.writerows(rows)
     return dwriter.writesource()
@@ -151,7 +160,8 @@ class Writer(object):
         self.writer.writerow(row)
 
     def flush(self):
-        self.csv_file.flush()
+        if hasattr(self, 'csv_file'):
+            self.csv_file.flush()
 
     def writesource(self):
         assert self.writer, 'no rows have been written. cannot write datasource'
@@ -242,7 +252,7 @@ class DictWriter(Writer):
 
 
     def init_from_row(self, row):
-        logging.debug('inferring keys from first row')
+        logger.debug('inferring keys from first row')
         self.keys = sorted(row.keys())
         self.keys.remove(self.date_key)
         self.keys.insert(0,self.date_key)
@@ -288,12 +298,12 @@ def get_color_map(n):
     family = colorbrewer.Spectral
     if n < 3:
         color_map = family[3][:n]
-    elif n > 12:
-        logging.warning('too many metrics, looping over color space')
-        color_map = itertools.cycle(family[12])
+    elif n > 11:
+        logger.warning('too many metrics, looping over color space')
+        color_map = itertools.cycle(family[11])
     else:
         color_map = family[n]
-    return color_map
+    return list(itertools.islice(color_map, None, n))
 
 def writegraph(slug, name, sources, metric_ids=None, basedir='.', meta={}, options={}):
     """
@@ -347,7 +357,7 @@ def writegraph(slug, name, sources, metric_ids=None, basedir='.', meta={}, optio
             m = metric(source_dict[source_id], i, col_key, color_map[i])
             metrics.append(m)
         except ValueError:
-            logging.warning('Could not find column label: %s in datasource: %s', col_key, source['id'])
+            logger.warning('Could not find column label: %s in datasource: %s', col_key, source['id'])
     
         
     graph = {
@@ -371,9 +381,7 @@ def writegraph(slug, name, sources, metric_ids=None, basedir='.', meta={}, optio
             "lines": []
             },
         "options": {
-            "strokeWidth": 4,
-            "pointSize": 3,
-            "drawPoints": True
+            "strokeWidth": 2,
             },
         "desc": ""
         }
