@@ -110,7 +110,10 @@ class Writer(object):
                  types=None):
         self.id = id
         self.name = name
-        self.keys = keys
+        if keys is not None:
+            self.keys = map(lambda k : k.encode('utf-8') if isinstance(k,unicode) else k, keys)
+        else:
+            self.keys = None
         self.date_key = date_key
 
         # will be populated by actually writing rows
@@ -254,6 +257,7 @@ class DictWriter(Writer):
     def init_from_row(self, row):
         logger.debug('inferring keys from first row')
         self.keys = sorted(row.keys())
+        self.keys = map(lambda k : k.encode('utf-8') if isinstance(k,unicode) else k, self.keys)
         self.keys.remove(self.date_key)
         self.keys.insert(0,self.date_key)
         self.init_keys()
