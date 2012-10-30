@@ -5,3 +5,6 @@
 datasources
 datafiles
 graphs
+*.json
+*.csv
+*.tsv
