@@ -47,7 +47,7 @@ def write(id, name, keys, rows, **kwargs):
         2012/10/01,7,9
         >>>
     """
-    if not rows:
+    if len(rows) == 0:
         logger.warning('no datafile or datasource created because rows is empty')
         return None
     writer = Writer(id, name, keys, **kwargs)
