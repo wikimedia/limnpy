@@ -47,7 +47,7 @@ def write(id, name, keys, rows, **kwargs):
         2012/10/01,7,9
         >>>
     """
-    if len(rows) == 0:
+    if not rows:
         logger.warning('no datafile or datasource created because rows is empty')
         return None
     writer = Writer(id, name, keys, **kwargs)
@@ -111,7 +111,8 @@ class Writer(object):
         self.id = id
         self.name = name
         if keys is not None:
-            self.keys = map(lambda k : k.encode('utf-8') if isinstance(k,unicode) else k, keys)
+            # self.keys = map(lambda k : k.decode('utf-8') if isinstance(k,str) else unicode(k), keys)
+            self.keys = map(lambda k : k.encode('utf-8') if isinstance(k,unicode) else str(k), keys)
         else:
             self.keys = None
         self.date_key = date_key
@@ -139,7 +140,8 @@ class Writer(object):
     def init_keys(self):
         if not self.writer:
             csv_path = os.path.join(self.datafile_dir, self.csv_name)
-            self.csv_file = codecs.open(csv_path, encoding='utf-8', mode='w')
+            # self.csv_file = codecs.open(csv_path, encoding='utf-8', mode='w')
+            self.csv_file = open(csv_path, mode='w')
             self.writer = csv.writer(self.csv_file)
             self.writer.writerow(self.keys)
 
@@ -249,7 +251,9 @@ class DictWriter(Writer):
     def init_keys(self):
         if not self.writer:
             csv_path = os.path.join(self.datafile_dir, self.csv_name)
-            self.csv_file = codecs.open(csv_path, encoding='utf-8', mode='w')
+            # self.csv_file = codecs.open(csv_path, encoding='utf-8', mode='w')
+            self.csv_file = open(csv_path, mode='w')
+            
             self.writer = csv.DictWriter(self.csv_file, self.keys, restval='', extrasaction='ignore')
             self.writer.writeheader()
 
@@ -257,7 +261,8 @@ class DictWriter(Writer):
     def init_from_row(self, row):
         logger.debug('inferring keys from first row')
         self.keys = sorted(row.keys())
-        self.keys = map(lambda k : k.encode('utf-8') if isinstance(k,unicode) else k, self.keys)
+        # self.keys = map(lambda k : k.decode('utf-8') if isinstance(k,str) else unicode(k), self.keys)
+        self.keys = map(lambda k : k.encode('utf-8') if isinstance(k,unicode) else str(k), self.keys)
         self.keys.remove(self.date_key)
         self.keys.insert(0,self.date_key)
         self.init_keys()
