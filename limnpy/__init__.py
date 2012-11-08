@@ -181,8 +181,8 @@ class Writer(object):
         meta['url'] = '/data/datafiles/' + self.csv_name
 
         timespan = {}
-        timespan['start'] = self.start
-        timespan['end'] = self.end
+        timespan['start'] = self.start.strftime(limn_date_fmt)
+        timespan['end'] = self.end.strftime(limn_date_fmt)
         #timespan['step'] = '1mo'
         timespan['step'] = '1d'
         meta['timespan'] = timespan
@@ -305,14 +305,17 @@ def metric(source, index, col_key, color=None):
 def get_color_map(n):
     # get colorspace based on number of metrics
     family = colorbrewer.Spectral
+    if n == 2:
+        color_map = [family[3][0], family[3][2]]
     if n < 3:
         color_map = family[3][:n]
     elif n > 11:
         logger.warning('too many metrics, looping over color space')
         color_map = itertools.cycle(family[11])
+        color_map = list(itertools.islice(color_map, None, n))
     else:
         color_map = family[n]
-    return list(itertools.islice(color_map, None, n))
+    return color_map
 
 def writegraph(slug, name, sources, metric_ids=None, basedir='.', meta={}, options={}):
     """
