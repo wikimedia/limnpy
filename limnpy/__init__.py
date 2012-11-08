@@ -6,100 +6,26 @@ from collections import Sequence, MutableSequence
 import codecs
 import colorbrewer
 import itertools
+import pandas as pd
+import pprint
 
 logger = logging.getLogger(__name__)
 
 limn_date_fmt = '%Y/%m/%d'
 
-def write(id, name, keys, rows, **kwargs):
+class DataSource(object):
     """
-    Intsance level convience method for carrying out all of the steps
-    necessary to write a datafile and datasource
-
-        >>> import limnpy, datetime
-        >>> rows = [[datetime.date(2012, 9, 1), 1, 2],
-        ...         [datetime.date(2012, 10, 1), 7, 9]]
-        >>> source = limnpy.write('write_test', 'Write Test', ['date', 'x', 'y'], rows)
-        >>> print open('./datasources/write_test.yaml').read().strip()
-        chart:
-          chartType: dygraphs
-        columns:
-          labels:
-          - date
-          - x
-          - y
-          types:
-          - date
-          - int
-          - int
-        format: csv
-        id: write_test
-        name: Write Test
-        shortName: Write Test
-        timespan:
-          end: 2012-10-01
-          start: 2012-09-01
-          step: 1d
-        url: /data/datafiles/write_test.csv
-        >>> print open('./datafiles/write_test.csv').read().strip() # doctest: +NORMALIZE_WHITESPACE
-        date,x,y
-        2012/09/01,1,2
-        2012/10/01,7,9
-        >>>
+    This class represents a limn datasource including its associated datafile.
+    The constructor takes in the datasource id, name and the actual data.
+    Once the datasource hsa been constructed, you can add or modify the __data__
+    member which is just a pandas.DataFrame object or the __source__ dictionary
+    which maps directly to the datasource YAML file required by limn.  After
+    modifying the __data__ and __source__ to your liking (or not at all), calling
+    write() will produce both the YAML and csv files required by limn in the appropriate
+    directories ({basedir}/datafiles, {basedir}/datasources).  You can also
+    create a graph from the datasource including all of its columns or only a
+    subset by calling the write_graph() method.  This 
     """
-    if not rows:
-        logger.warning('no datafile or datasource created because rows is empty')
-        return None
-    writer = Writer(id, name, keys, **kwargs)
-    writer.writerows(rows)
-    return writer.writesource()
-
-
-def writedicts(id, name, rows, **kwargs):
-    """
-    Intsance level convience method for carrying out all of the steps
-    necessary to write a datafile and datasource
-
-        >>> import limnpy, datetime
-        >>> rows = [{'date' : datetime.date(2012, 9, 1), 'x' : 1, 'y' : 2},
-        ...         {'date' : datetime.date(2012, 10, 1), 'x' : 7, 'y' : 9},]
-        >>> source = limnpy.writedicts('writedicts_test', "Write Dicts Test", rows)
-        >>> print open('./datasources/writedicts_test.yaml').read().strip()
-        chart:
-          chartType: dygraphs
-        columns:
-          labels:
-          - date
-          - x
-          - y
-          types:
-          - date
-          - int
-          - int
-        format: csv
-        id: writedicts_test
-        name: Write Dicts Test
-        shortName: Write Dicts Test
-        timespan:
-          end: 2012-10-01
-          start: 2012-09-01
-          step: 1d
-        url: /data/datafiles/writedicts_test.csv
-        >>> print open('./datafiles/writedicts_test.csv').read().strip() # doctest: +NORMALIZE_WHITESPACE
-        date,x,y
-        2012/09/01,1,2
-        2012/10/01,7,9
-        >>>
-    """
-    if not rows:
-        logger.warning('no datafile or datasource created because rows is empty')
-        return None
-    dwriter = DictWriter(id, name, **kwargs)
-    dwriter.writerows(rows)
-    return dwriter.writesource()
-
-
-class DataSource(pd.DataFrame):
 
     default_source = {}
     default_source['id'] = None
@@ -119,252 +45,136 @@ class DataSource(pd.DataFrame):
     columns['labels'] = None
     default_source['columns'] = columns
 
-    default_source['chart'] = {'chartType' : 'dygraphs'}
-    
+    default_source['chart'] = {'chartType' : 'dygraphs'}    
 
-    def __init__(self, limn_id, limn_name, date_col, *args, **kwargs):
+    def __init__(self, limn_id, limn_name, data, labels=None, types=None, date_key='date'):
+        """
+        Constructs a Python representation of Limn (github.com/wikimedia/limn) datasource
+        including both the metadata YAML file (known as a datasource) and the associated csv
+        file containing the actual content (known as a datafile).
+        Args:
+            limn_id   (str)       : the id used to uniquely identify this datasource in limn
+            limn_name (str)       : the name which will be displayed to users for this datasource
+            data      (anything pandas.DataFrame accepts) :
+                                    the actual data associated with this datasource.  Can take
+                                    any format accepted by the pandas.DataFrame constructor.
+                                    which includes things like list of lists, list of dicts, dict
+                                    mapping column names to lists, numpy ndarrays.  See:
+                                    http://pandas.pydata.org/pandas-docs/stable/dsintro.html#dataframe
+                                    for more information.
+            labels    (list)      : the labels corresponding to the data "columns".  Not required
+                                    if the data object
+            types     (list)      : the javascript/limn types associated with each column of the csv file
+                                    mostly this just means `int` and `date`
+            date_key  (str)       : name of the column to be used as the date column.  Defaults to 'date'
+        """
+
+        self.date_key = date_key
         self.__source__ = DataSource.default_source
         self.__source__['id'] = limn_id
         self.__source__['name'] = limn_name
         self.__source__['shortName'] = limn_name
         self.__source__['url'] = '/data/datafiles/' + limn_id + '.csv'
+        self.__source__['columns']['types'] = types
 
-        kwargs['parse_date'] = True
-        Super(DataSource, self).__init__(*args, **kwargs)
+        # NOTE: though we construct the __data__ member here, we allow the possibility
+        # that it will change before we write, so all derived fields get set in write()
+        try:
+            self.__data__ = pd.DataFrame(data)
+        except:
+            logger.exception('Error constructing DataFrame from data.  See pandas.DataFrame documentation for help')
+        if list(self.__data__.columns) == range(len(self.__data__.columns)):
+            # this means the data structure didn't include keys
+            if labels is not None:
+                self.__data__.rename(dict(enumerate(labels)), inplace=True)
+            else:
+                raise ValueError('`data` does not contain label information, column names must be passed in with the labels arg')
+        assert self.date_key in self.__data__.columns, 'date_key: `%s` must be in column labels: %s' % (date_key, list(self.__data__.columns))
 
-    @static_method
-    def from_records():
-        pass
 
-    def to_limn(self):
+    def infer(self):
+        """
+        Infers the required metadata from the data if possible.  This is distinct
+        from the __init__ routine so that the user can change the data after constructing
+        it and the meta data will accurately reflect any added data
+        """
+        # parse dates, sort, and format
+        self.__data__[self.date_key] = pd.to_datetime(self.__data__[self.date_key])
+        self.__data__.sort(self.date_key, inplace=True)
+        self.__data__[self.date_key] = self.__data__[self.date_key]\
+                                            .astype(pd.lib.Timestamp)\
+                                            .map(lambda ts : ts.strftime(limn_date_fmt))
+        
+        # re-order columns so date is first
+        new_order = list(self.__data__.columns)
+        new_order.remove(self.date_key)
+        new_order.insert(0, self.date_key)
+        self.__data__ = self.__data__.reindex(columns=new_order)
+
         # fill in data dependent keys
-        self.__source__['start'] = min(self[self.date_key])
-        self.__source__['end'] = max(self[self.date_key])
-        self.__source__['types'] = ['float'] * len(self.columns)
-        self.__source__['types'][list(self.columns).index(self.date_key)] = 'date'
+        self.__source__['columns']['labels'] = list(self.__data__.columns)
+        self.__source__['timespan']['start'] = min(self.__data__[self.date_key])
+        self.__source__['timespan']['end'] = max(self.__data__[self.date_key])
+        if self.__source__['columns']['types'] is None:
+            self.__source__['columns']['types'] = ['int'] * len(self.__data__.columns)
+            self.__source__['columns']['types'][list(self.__data__.columns).index(self.date_key)] = 'date'
 
 
-class Writer(object):
+    def write(self, basedir='.'):
+        """
+        Infers metadata from data and writes datasource csv and YAML files
+        to {basedir}/datasources and {basedir}/datafiles respectively
+        Args:
+            basedir (str) : specifies the directory in which to place the datasources
+                            and datafiles directories
+        """
+        
+        self.infer()
 
-    def __init__(self, 
-                 id, 
-                 name,
-                 keys,
-                 date_key=0,
-                 basedir='.',
-                 types=None):
-        self.id = id
-        self.name = name
-        if keys is not None:
-            # self.keys = map(lambda k : k.decode('utf-8') if isinstance(k,str) else unicode(k), keys)
-            self.keys = map(lambda k : k.encode('utf-8') if isinstance(k,unicode) else str(k), keys)
-        else:
-            self.keys = None
-        self.date_key = date_key
+        # make dirs and write files
+        df_dir = os.path.join(self.basedir, 'datafiles')
+        df_path = os.path.join(df_dir, self.__source__['id'] + '.csv')
+        logger.debug('writing datafile to: %s', df_path)
+        if not os.path.exists(df_dir):
+            os.makedirs(df_dir)
+        self.__data__.to_csv(df_path, index=False, encoding='utf-8')
 
-        # will be populated by actually writing rows
-        self.start = None
-        self.end = None
-        self.writer = None
+        logger.debug(pprint.pformat(self.__source__))
 
-        # check that output directories exist
-        self.datafile_dir = os.path.join(basedir, 'datafiles')
-        if not os.path.isdir(self.datafile_dir):
-            os.mkdir(self.datafile_dir)
-        self.datasource_dir = os.path.join(basedir, 'datasources')
-        if not os.path.isdir(self.datasource_dir):
-            os.mkdir(self.datasource_dir)
-        self.csv_name = '%s.csv' % self.id
-        self.yaml_name = '%s.yaml' % self.id
+        ds_dir = os.path.join(self.basedir, 'datasources')
+        ds_path = os.path.join(ds_dir, self.__source__['id'] + '.yaml')
+        logger.debug('writing datasource to: %s', ds_path)
+        if not os.path.exists(ds_dir):
+            os.makedirs(ds_dir)
+        yaml.safe_dump(self.__source__, open(ds_path, 'w'), default_flow_style=False)
 
-        # sets up a writer instance if we can
-        if self.keys is not None:
-            self.init_keys()
+        self.wrote = True
 
 
-    def init_keys(self):
-        if not self.writer:
-            csv_path = os.path.join(self.datafile_dir, self.csv_name)
-            # self.csv_file = codecs.open(csv_path, encoding='utf-8', mode='w')
-            self.csv_file = open(csv_path, mode='w')
-            self.writer = csv.writer(self.csv_file)
-            self.writer.writerow(self.keys)
+    def __repr__(self):
+        return pprint.pformat(vars(self))
 
 
-    def writerows(self, rows):
-        rows = sorted(rows, key=itemgetter(self.date_key))
-        for row in rows:
-            self.writerow(row)
-        self.flush()
+    def get_graph(self, metric_ids=None):
+        """ Returns a limnpy.Graph object with each of the (selected) datasource's columns """
+        self.infer()
+
+        if metric_ids is not None:
+            metric_ids = itertools.izip(itertools.repeat(self.__source__['id']), metric_ids)
+        return Graph(self.__source__['id'], self.__source__['name'], [self])
 
 
-    def writerow(self, row):
-        if self.start is None or row[self.date_key] < self.start:
-            self.start = row[self.date_key]
-        if self.end is None or row[self.date_key] > self.end:
-            self.end = row[self.date_key]
-        if not isinstance(row[self.date_key], basestring):
-            if isinstance(row, Sequence) and not isinstance(row, MutableSequence):
-                row = list(row)
-            row[self.date_key] = row[self.date_key].strftime(limn_date_fmt)
-        self.writer.writerow(row)
-
-    def flush(self):
-        if hasattr(self, 'csv_file'):
-            self.csv_file.flush()
-
-    def writesource(self):
-        assert self.writer, 'no rows have been written. cannot write datasource'
-
-        self.types = ['date'] + ['int']*(len(self.keys) - 1)
-
-        meta = {}
-        meta['id'] = self.id
-        meta['name'] = self.name
-        meta['shortName'] = meta['name']
-        meta['format'] = 'csv'
-        meta['url'] = '/data/datafiles/' + self.csv_name
-
-        timespan = {}
-        timespan['start'] = self.start.strftime(limn_date_fmt)
-        timespan['end'] = self.end.strftime(limn_date_fmt)
-        #timespan['step'] = '1mo'
-        timespan['step'] = '1d'
-        meta['timespan'] = timespan
-
-        columns = {}
-        columns['types'] = self.types
-        columns['labels'] = self.keys
-        meta['columns'] = columns
-
-        meta['chart'] = {'chartType' : 'dygraphs'}
-
-        yaml_path = os.path.join(self.datasource_dir, self.yaml_name)
-        fyaml = open(yaml_path, 'w')
-        fyaml.write(yaml.safe_dump(meta, default_flow_style=False))
-        fyaml.close()
-        return meta
+    def write_graph(self, metric_ids=None, basedir='.'):
+        """
+        Writes a graph with the (selected) datasource columns to the graphs dir in the 
+        optionally specified basedir (defaults to .)"""
+        g = get_graph(metric_ids)
+        g.write(basedir)
 
 
-class DictWriter(Writer):
+class Graph(object):
     """
-    This class is a tool for writing limn compatible 'datasources' and 'datafiles'. It 
-    emulates the csv.DictWriter class in that it provides a way to write a collection
-    of dicts to file, where each dict represents a 'row' in the traditional sense.  Like 
-    DictWriter, because dicts are unordered, the constructor takes in an ordered collection
-    of keys to determine the ordering of the columns in the output file.  The constructor also 
-    takes in a variety of limn-specific parameters
-
-    parameters:
-      keys      : list of keys used to extract the ordering of columns from each dict
-      id        : the datasource unique id which will be used as a unique id by limn
-      name      : the human-readable datasource name which will be displayed in the browser
-      basedir   : the diretory in which to optionally create the `datasources`, and `datafiles`
-                  directories into which the datasoures and datafiles themselves will be 
-                  respectively added
-      types     : list of types or javascript type strings correponding to each key given by 
-                  the keys argument. If the arg is omitted the types will be set to 
-                     ['date', 'int', 'int', ...]
-
-    here's a simple example (set up for doctest) which shows a more granular way of controlling
-    the construction of the limn files
-
-        >>> import limnpy, datetime
-        >>> writer = limnpy.DictWriter('dictwriter_test', "DictWriter Test", keys=['date', 'x', 'y'])
-        >>> rows = [{'date' : datetime.date(2012, 9, 1), 'x' : 1, 'y' : 2},
-        ...         {'date' : datetime.date(2012, 10, 1), 'x' : 7, 'y' : 9},]
-        >>> for row in rows:
-        ...     writer.writerow(row)
-        ... 
-        >>> s = writer.writesource()
-        >>> writer.flush()
-        >>> hash(open('./datasources/dictwriter_test.yaml').read())
-        2318934412299633258
-        >>> hash(open('./datafiles/dictwriter_test.csv').read())
-        -3310066083987888095
-        >>>
-    """
-
-    def __init__(self, *args, **kwargs):
-        if 'keys' not in kwargs:
-            kwargs['keys'] = None
-        super(DictWriter, self).__init__(*args, **kwargs)
-        if 'date_key' not in kwargs:
-            self.date_key = 'date'
-
-
-    def init_keys(self):
-        if not self.writer:
-            csv_path = os.path.join(self.datafile_dir, self.csv_name)
-            # self.csv_file = codecs.open(csv_path, encoding='utf-8', mode='w')
-            self.csv_file = open(csv_path, mode='w')
-            
-            self.writer = csv.DictWriter(self.csv_file, self.keys, restval='', extrasaction='ignore')
-            self.writer.writeheader()
-
-
-    def init_from_row(self, row):
-        logger.debug('inferring keys from first row')
-        self.keys = sorted(row.keys())
-        # self.keys = map(lambda k : k.decode('utf-8') if isinstance(k,str) else unicode(k), self.keys)
-        self.keys = map(lambda k : k.encode('utf-8') if isinstance(k,unicode) else str(k), self.keys)
-        self.keys.remove(self.date_key)
-        self.keys.insert(0,self.date_key)
-        self.init_keys()
-
-
-    def writerow(self, row):
-        # dict writer differs from writer in that it requires the keys before
-        # it can write a row, so it figures out the keys on the first row
-        if not self.writer:
-            self.init_from_row(row)
-        super(DictWriter, self).writerow(row)
-
-
-def metric(source, index, col_key, color=None):
-    if isinstance(col_key, basestring):
-        col_key = source['columns']['labels'].index(col_key)
-    assert isinstance(col_key, int), 'col_key must either be a column index as an int or column label as a str'
-    metric = {
-        "index": index,
-        "scale": 1,
-        "timespan": {
-            "start": None,
-            "step": None,
-            "end": None
-            },
-        "color": color,
-        "format_axis": None,
-        "label": "",
-        "disabled": False,
-        "visible": True,
-        "format_value": None,
-        "transforms": [],
-        "source_id": source['id'],
-        "chartType": None,
-        "type": "int",
-        "source_col": col_key
-        }
-    return metric
-
-def get_color_map(n):
-    # get colorspace based on number of metrics
-    family = colorbrewer.Spectral
-    if n == 2:
-        color_map = [family[3][0], family[3][2]]
-    if n < 3:
-        color_map = family[3][:n]
-    elif n > 11:
-        logger.warning('too many metrics, looping over color space')
-        color_map = itertools.cycle(family[11])
-        color_map = list(itertools.islice(color_map, None, n))
-    else:
-        color_map = family[n]
-    return color_map
-
-def writegraph(slug, name, sources, metric_ids=None, basedir='.', meta={}, options={}):
-    """
-    Creates limn compatible graph file with the provided options.
+    Represents a limn compatible graph with the provided options.
 
         >>> import limnpy, datetime
         >>> rows1 = [[datetime.date(2012, 9, 1), 1, 2],
@@ -373,7 +183,8 @@ def writegraph(slug, name, sources, metric_ids=None, basedir='.', meta={}, optio
         >>> rows2 = [[datetime.date(2012, 9, 1), 19, 22],
         ...         [datetime.date(2012, 10, 1), 27, 29]]
         >>> s2 = limnpy.write('source2', 'Source 2', ['date', 'x', 'y'], rows2)
-        >>> limnpy.writegraph('my_first_autograph', 'My First Autograph', [s1, s2], [('source1', 'x'), ('source2', 'y')])
+        >>> g = limnpy.Graph('my_first_autograph', 'My First Autograph', [s1, s2], [('source1', 'x'), ('source2', 'y')])
+        >>> g.write()
         >>> hash(open('./graphs/my_first_autograph.json').read())
         -6544027546604027079
 
@@ -383,57 +194,30 @@ def writegraph(slug, name, sources, metric_ids=None, basedir='.', meta={}, optio
         >>> import limnpy, datetime
         >>> rows1 = [[datetime.date(2012, 9, 1), 1, 2],
         ...         [datetime.date(2012, 10, 1), 7, 9]]
-        >>> s1 = limnpy.write('source1', 'Source 1', ['date', 'x', 'y'], rows1)
-        >>> rows2 = [[datetime.date(2012, 9, 1), 19, 22],
-        ...         [datetime.date(2012, 10, 1), 27, 29]]
-        >>> s2 = limnpy.write('source2', 'Source 2', ['date', 'x', 'y'], rows2)
-        >>> limnpy.writegraph('my_first_default_autograph', 'My First Default Autograph', [s1, s2])
+        >>> s1 = limnpy.DataSource('source1', 'Source 1', ['date', 'x', 'y'], rows1)
+        >>> limnpy.writegraph('my_first_default_autograph', 'My First Default Autograph', [s1])
         >>> hash(open('./graphs/my_first_default_autograph.json').read())
         -9151737922308482552
 
     """
-
-    graphdir = os.path.join(basedir, 'graphs')
-    if not os.path.isdir(graphdir):
-        os.mkdir(graphdir)
-    graph_fn = os.path.join(graphdir, '%s.json' % slug)
-
-    if metric_ids is None:
-        metric_ids = []
-        for source in sources:
-            for col_id in range(1, len(source['columns']['labels'])):
-                metric_ids.append((source['id'], col_id))
-
-    color_map = get_color_map(len(metric_ids))
-
-    metrics = []
-    source_dict = {source['id'] : source for source in sources}
-    for i, (source_id, col_key) in enumerate(metric_ids):
-        source = source_dict[source_id]
-        try:
-            m = metric(source_dict[source_id], i, col_key, color_map[i])
-            metrics.append(m)
-        except ValueError:
-            logger.warning('Could not find column label: %s in datasource: %s', col_key, source['id'])
     
-        
-    graph = {
-        "name": name,
+    default_graph = {
+        "name": None,
         "notes": "",
         "callout": {
             "enabled": True,
             "metric_idx": 0,
             "label": ""
             },
-        "slug": "ar_wp_active",
+        "slug": None,
         "width": "auto",
         "parents": ["root"],
         "result": "ok",
-        "id": slug,
+        "id": None,
         "chartType": "dygraphs",
         "height": 320,
         "data": {
-            "metrics": metrics,
+            "metrics": [],
             "palette": None,
             "lines": []
             },
@@ -442,11 +226,110 @@ def writegraph(slug, name, sources, metric_ids=None, basedir='.', meta={}, optio
             },
         "desc": ""
         }
-
-    for name, val in meta:
-        graphs[name] = val
-
-    for name, val in options:
-        graphs['options'][name] = val
     
-    json.dump(graph, codecs.open(graph_fn, encoding='utf-8', mode='w'), indent=2)
+
+    def __init__(self, id, title, sources, slug=None, metric_ids=None):
+        """
+        Construct a Python object representing a limn graph.
+        Args:
+            id         (str)   : graph id which uniquely identifies this graph for use in dashboards and such
+            title      (str)   : title which will be displayed above graph
+            sources    (list)  : list of limnpy.DataSource objects from which to construct the graph
+        Kwargs:
+            slug       (str)   : slug used to identify the graph by url (via {domain}/graphs/slug)
+                                 defaults to the value of `id`
+            metric_ids (list)  : list of tuples (datasource_id, column_name) to plot if None will
+                                 plot all of the columns from all of the datasources
+        """
+        self.__graph__ = Graph.default_graph
+
+        self.__graph__['id'] = id
+        self.__graph__['name'] = title
+        if slug is None:
+            self.__graph__['slug'] = id
+        else:
+            self.__graph__['slug'] = slug
+
+        if metric_ids is None:
+            metric_ids = []
+            for source in sources:
+                for col_id in range(1, len(source.__source__['columns']['labels'])):
+                    metric_ids.append((source.__source__['id'], col_id))
+
+        color_map = self.get_color_map(len(metric_ids))
+
+        metrics = []
+        source_dict = {source.__source__['id'] : source for source in sources}
+        for i, (source_id, col_key) in enumerate(metric_ids):
+            source = source_dict[source_id]
+            try:
+                m = Graph.get_metric(source_dict[source_id], i, col_key, color_map[i])
+                metrics.append(m)
+            except ValueError:
+                logger.warning('Could not find column label: %s in datasource: %s', col_key, source.__source__['id'])
+        self.__graph__['data']['metrics'] = metrics
+    
+
+    def write(self, basedir='.'):
+        """
+        writes graph JSON file to {basedir}/graphs.
+        Args:
+            basedir (str) : specifies the directory in which to place the graphs
+                            will create the graphs directory if it doesn not already
+                            exist
+        """
+
+        graphdir = os.path.join(basedir, 'graphs')
+        if not os.path.isdir(graphdir):
+            os.mkdir(graphdir)
+        graph_fn = os.path.join(graphdir, self.__graph__['id'] + '.json')
+
+        json.dump(self.__graph__, codecs.open(graph_fn, encoding='utf-8', mode='w'), indent=2)
+    
+
+    @classmethod
+    def get_color_map(cls, n):
+        """ get colorspace based on number of metrics using colorbrewer """
+        family = colorbrewer.Set2
+        if n == 2:
+            color_map = [family[3][0], family[3][2]]
+        if n < 3:
+            color_map = family[3][:n]
+        elif n > 11:
+            logger.warning('too many metrics, looping over color space')
+            color_map = itertools.cycle(family[11])
+            color_map = list(itertools.islice(color_map, None, n))
+        else:
+            color_map = family[n]
+        str_color_map = ['rgb(%d,%d,%d)' % color_tuple for color_tuple in color_map]
+        print str_color_map
+        return str_color_map
+    
+
+    @classmethod
+    def get_metric(cls, source, index, col_key, color=None):
+        """ constructs a limn-compatible dictionary represnting a metric """
+        if isinstance(col_key, basestring):
+            col_key = source.__source__['columns']['labels'].index(col_key)
+        assert isinstance(col_key, int), 'col_key must either be a column index as an int or column label as a str'
+        metric = {
+            "index": index,
+            "scale": 1,
+            "timespan": {
+                "start": None,
+                "step": None,
+                "end": None
+                },
+            "color": color,
+            "format_axis": None,
+            "label": "",
+            "disabled": False,
+            "visible": True,
+            "format_value": None,
+            "transforms": [],
+            "source_id": source.__source__['id'],
+            "chartType": None,
+            "type": "int",
+            "source_col": col_key
+            }
+        return metric
