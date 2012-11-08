@@ -99,6 +99,51 @@ def writedicts(id, name, rows, **kwargs):
     return dwriter.writesource()
 
 
+class DataSource(pd.DataFrame):
+
+    default_source = {}
+    default_source['id'] = None
+    default_source['name'] = None
+    default_source['shortName'] = default_source['name']
+    default_source['format'] = 'csv'
+    default_source['url'] = None
+    
+    timespan = {}
+    timespan['start'] = None
+    timespan['end'] = None
+    timespan['step'] = '1d'
+    default_source['timespan'] = timespan
+    
+    columns = {}
+    columns['types'] = None
+    columns['labels'] = None
+    default_source['columns'] = columns
+
+    default_source['chart'] = {'chartType' : 'dygraphs'}
+    
+
+    def __init__(self, limn_id, limn_name, date_col, *args, **kwargs):
+        self.__source__ = DataSource.default_source
+        self.__source__['id'] = limn_id
+        self.__source__['name'] = limn_name
+        self.__source__['shortName'] = limn_name
+        self.__source__['url'] = '/data/datafiles/' + limn_id + '.csv'
+
+        kwargs['parse_date'] = True
+        Super(DataSource, self).__init__(*args, **kwargs)
+
+    @static_method
+    def from_records():
+        pass
+
+    def to_limn(self):
+        # fill in data dependent keys
+        self.__source__['start'] = min(self[self.date_key])
+        self.__source__['end'] = max(self[self.date_key])
+        self.__source__['types'] = ['float'] * len(self.columns)
+        self.__source__['types'][list(self.columns).index(self.date_key)] = 'date'
+
+
 class Writer(object):
 
     def __init__(self, 
