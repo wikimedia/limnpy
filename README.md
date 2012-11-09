@@ -37,7 +37,7 @@ To dump data to file simply construct an instance of a `limnpy.DataSource` and c
 import limnpy, datetime
 rows = [{'date' : datetime.date(2012, 9, 1), 'x' : 1, 'y' : 2},
         {'date' : datetime.date(2012, 10, 1), 'x' : 7, 'y' : 9},]
-ds = limnpy.DataSource('evan_test', 'Evan Test', rows)
+ds = limnpy.DataSource('test_source', 'Test Source', rows)
 ds.write()
 ````
 which should create the files `./datasources/evan_test.yaml` and `./datafiles/evan_test.csv`.  To control the location
