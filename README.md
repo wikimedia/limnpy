@@ -40,9 +40,9 @@ rows = [{'date' : datetime.date(2012, 9, 1), 'x' : 1, 'y' : 2},
 ds = limnpy.DataSource('test_source', 'Test Source', rows)
 ds.write()
 ````
-which should create the files `./datasources/evan_test.yaml` and `./datafiles/evan_test.csv`.  To control the location
+which should create the files `./datasources/test_source.yaml` and `./datafiles/test_source.csv`.  To control the location
 of these files, you can pass in the `basedir` argument to the `write()` method which directs limnpy to
-place the YAML and csv files in `basedir/{datasources,datafiles,graphs}`.
+place the YAML and csv files in `BASEDIR/{datasources,datafiles,graphs}`, creating any missing directories along the way.
 
 ````
 ds.write(basedir='../in/a/directory/far/far/away/')
