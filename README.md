@@ -99,7 +99,8 @@ ds = DataSource('id', 'Name', rows, date_key='first_seen')
 
 ### Graphs
 Another common task is the automatic generation of a graph.  To construct a graph from a `limnpy.DataSource`
-object, just call `ds.write_graph()`.  Or to specify a particular set of columns to plot from a datasource, call
+object containing all columns, just call `ds.write_graph()`.  Or, to specify a particular set of columns to
+plot from a `DataSource`, call
 
 ````python
 ds.write_graph(['x'])
