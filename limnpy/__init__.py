@@ -126,6 +126,10 @@ class DataSource(object):
             else:
                 raise ValueError('`data` does not contain label information, column names must be passed in with the labels arg')
         assert self.date_key in self.__data__.columns, 'date_key: `%s` must be in column labels: %s' % (date_key, list(self.__data__.columns))
+        try:
+            self.__data__.set_index(self.date_key, inplace=True)
+        except:
+            print 'error resetting index because self.__data__.columns=%s' % self.__data__.columns
         self.infer() # can't hurt to infer now. this way we can make graphs before writing the datasource
 
 
@@ -136,25 +140,18 @@ class DataSource(object):
         it and the meta data will accurately reflect any added data
         """
         # parse dates, sort, and format
-        self.__data__[self.date_key] = pd.to_datetime(self.__data__[self.date_key])
-        self.__data__.sort(self.date_key, inplace=True)
-        self.__data__[self.date_key] = self.__data__[self.date_key]\
-                                            .astype(pd.lib.Timestamp)\
-                                            .map(lambda ts : ts.strftime(limn_date_fmt))
+        self.__data__.index = pd.to_datetime(self.__data__.index)
+        self.__data__.sort()
+        self.__data__.index = self.__data__.index\
+                                           .astype(pd.lib.Timestamp)\
+                                           .map(lambda ts : ts.strftime(limn_date_fmt))
         
-        # re-order columns so date is first
-        new_order = list(self.__data__.columns)
-        new_order.remove(self.date_key)
-        new_order.insert(0, self.date_key)
-        self.__data__ = self.__data__.reindex(columns=new_order)
-
         # fill in data dependent keys
-        self.__source__['columns']['labels'] = list(self.__data__.columns)
-        self.__source__['timespan']['start'] = min(self.__data__[self.date_key])
-        self.__source__['timespan']['end'] = max(self.__data__[self.date_key])
+        self.__source__['columns']['labels'] = ['date'] + list(self.__data__.columns)
+        self.__source__['timespan']['start'] = self.__data__.index[0]
+        self.__source__['timespan']['end'] = self.__data__.index[-1]
         if self.__source__['columns']['types'] is None:
-            self.__source__['columns']['types'] = ['int'] * len(self.__data__.columns)
-            self.__source__['columns']['types'][list(self.__data__.columns).index(self.date_key)] = 'date'
+            self.__source__['columns']['types'] = ['date'] + ['int'] * len(self.__data__.columns)
 
 
     def write(self, basedir='.'):
@@ -174,7 +171,7 @@ class DataSource(object):
         logger.debug('writing datafile to: %s', df_path)
         if not os.path.exists(df_dir):
             os.makedirs(df_dir)
-        self.__data__.to_csv(df_path, index=False, encoding='utf-8')
+        self.__data__.to_csv(df_path, index_label='date', encoding='utf-8')
 
         logger.debug(pprint.pformat(self.__source__))
 
