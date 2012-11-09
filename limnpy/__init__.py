@@ -8,6 +8,7 @@ import colorbrewer
 import itertools
 import pandas as pd
 import pprint
+import copy
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,40 @@ class DataSource(object):
     directories ({basedir}/datafiles, {basedir}/datasources).  You can also
     create a graph from the datasource including all of its columns or only a
     subset by calling the write_graph() method.  This 
+
+    Examples:
+
+        >>> import limnpy, datetime
+        >>> rows = [[datetime.date(2012, 9, 1), 1, 2],
+        ...          [datetime.date(2012, 10, 1), 7, 9]]
+        >>> ds = limnpy.DataSource('test_source', 'Test Source', rows, labels=['date', 'x', 'y'])
+        >>> ds.write(basedir='doctest_tmp')
+        >>> hash(open('doctest_tmp/datasources/test_source.yaml').read())
+        -1285371890146798022
+        >>> hash(open('doctest_tmp/datafiles/test_source.csv').read())
+        -9093178411304175629
+
+        >>> ds.write_graph(basedir='doctest_tmp') # plot all columns
+        >>> hash(open('doctest_tmp/graphs/test_source.json').read())
+
+        >>> ds.__source__['id'] = 'test_source_just_x'
+        >>> ds.write_graph(metric_ids=['x'], basedir='doctest_tmp') # just plot x
+        >>> hash(open('doctest_tmp/graphs/test_source.json').read())
+
+        >>> import limnpy, datetime
+        >>> rows = [{'date' : datetime.date(2012, 9, 1), 'x' : 1, 'y' : 2},
+        ...          {'date' : datetime.date(2012, 10, 1), 'x' : 7, 'y' : 9}]
+        >>> ds = limnpy.DataSource('test_source', 'Test Source', rows)
+        >>> ds.write(basedir='doctest_tmp')
+        >>> hash(open('doctest_tmp/datasources/test_source.yaml').read())
+
+        >>> import limnpy, datetime
+        >>> rows = {'date' : [datetime.date(2012, 9, 1), datetime.date(2012, 10, 1)], 'x' : [1, 7], 'y' : [2, 9]}
+        >>> ds = limnpy.DataSource('test_source', 'Test Source', rows)
+        >>> ds.write(basedir='doctest_tmp')
+        >>> hash(open('doctest_tmp/datasources/test_source.yaml').read())
+        
+
     """
 
     default_source = {}
@@ -70,7 +105,7 @@ class DataSource(object):
         """
 
         self.date_key = date_key
-        self.__source__ = DataSource.default_source
+        self.__source__ = copy.deepcopy(DataSource.default_source)
         self.__source__['id'] = limn_id
         self.__source__['name'] = limn_name
         self.__source__['shortName'] = limn_name
@@ -82,14 +117,16 @@ class DataSource(object):
         try:
             self.__data__ = pd.DataFrame(data)
         except:
-            logger.exception('Error constructing DataFrame from data.  See pandas.DataFrame documentation for help')
-        if list(self.__data__.columns) == range(len(self.__data__.columns)):
-            # this means the data structure didn't include keys
+            logger.exception('Error constructing DataFrame from data: %s.  See pandas.DataFrame documentation for help', data)
+        if list(self.__data__.columns) == range(len(self.__data__.columns) or labels is not None):
+            logger.debug('labels were not set by Pandas, setting manually')
+            # this means the `data` object didn't include labels
             if labels is not None:
-                self.__data__.rename(dict(enumerate(labels)), inplace=True)
+                self.__data__.rename(columns=dict(enumerate(labels)), inplace=True)
             else:
                 raise ValueError('`data` does not contain label information, column names must be passed in with the labels arg')
         assert self.date_key in self.__data__.columns, 'date_key: `%s` must be in column labels: %s' % (date_key, list(self.__data__.columns))
+        self.infer() # can't hurt to infer now. this way we can make graphs before writing the datasource
 
 
     def infer(self):
@@ -132,7 +169,7 @@ class DataSource(object):
         self.infer()
 
         # make dirs and write files
-        df_dir = os.path.join(self.basedir, 'datafiles')
+        df_dir = os.path.join(basedir, 'datafiles')
         df_path = os.path.join(df_dir, self.__source__['id'] + '.csv')
         logger.debug('writing datafile to: %s', df_path)
         if not os.path.exists(df_dir):
@@ -141,13 +178,16 @@ class DataSource(object):
 
         logger.debug(pprint.pformat(self.__source__))
 
-        ds_dir = os.path.join(self.basedir, 'datasources')
+        ds_dir = os.path.join(basedir, 'datasources')
         ds_path = os.path.join(ds_dir, self.__source__['id'] + '.yaml')
         logger.debug('writing datasource to: %s', ds_path)
         if not os.path.exists(ds_dir):
             os.makedirs(ds_dir)
-        yaml.safe_dump(self.__source__, open(ds_path, 'w'), default_flow_style=False)
+        yaml_f = open(ds_path, 'w')
 
+        # the canonical=True arg keeps pyyaml from turning the str "y" (and others) into True
+        yaml.safe_dump(self.__source__, yaml_f, default_flow_style=False, canonical=True)
+        yaml_f.close()
         self.wrote = True
 
 
@@ -160,15 +200,16 @@ class DataSource(object):
         self.infer()
 
         if metric_ids is not None:
-            metric_ids = itertools.izip(itertools.repeat(self.__source__['id']), metric_ids)
-        return Graph(self.__source__['id'], self.__source__['name'], [self])
+            metric_ids = list(itertools.izip(itertools.repeat(self.__source__['id']), metric_ids))
+            logger.debug(metric_ids)
+        return Graph(self.__source__['id'], self.__source__['name'], [self], metric_ids)
 
 
     def write_graph(self, metric_ids=None, basedir='.'):
         """
         Writes a graph with the (selected) datasource columns to the graphs dir in the 
         optionally specified basedir (defaults to .)"""
-        g = get_graph(metric_ids)
+        g = self.get_graph(metric_ids)
         g.write(basedir)
 
 
@@ -179,24 +220,27 @@ class Graph(object):
         >>> import limnpy, datetime
         >>> rows1 = [[datetime.date(2012, 9, 1), 1, 2],
         ...         [datetime.date(2012, 10, 1), 7, 9]]
-        >>> s1 = limnpy.write('source1', 'Source 1', ['date', 'x', 'y'], rows1)
+        >>> s1 = limnpy.DataSource('source1', 'Source 1', rows1, labels=['date', 'x', 'y'])
+        >>> s1.write(basedir='doctest_tmp')
         >>> rows2 = [[datetime.date(2012, 9, 1), 19, 22],
         ...         [datetime.date(2012, 10, 1), 27, 29]]
-        >>> s2 = limnpy.write('source2', 'Source 2', ['date', 'x', 'y'], rows2)
+        >>> s2 = limnpy.DataSource('source2', 'Source 2', rows2, labels=['date', 'x', 'y'])
+        >>> s2.write(basedir='doctest_tmp')
         >>> g = limnpy.Graph('my_first_autograph', 'My First Autograph', [s1, s2], [('source1', 'x'), ('source2', 'y')])
-        >>> g.write()
-        >>> hash(open('./graphs/my_first_autograph.json').read())
+        >>> g.write(basedir='doctest_tmp')
+        >>> hash(open('doctest_tmp/graphs/my_first_autograph.json').read())
         -6544027546604027079
 
     or just pass in the sources and a graph will be constructed containing all of the columns
     in all of the sources
 
         >>> import limnpy, datetime
-        >>> rows1 = [[datetime.date(2012, 9, 1), 1, 2],
+        >>> rows = [[datetime.date(2012, 9, 1), 1, 2],
         ...         [datetime.date(2012, 10, 1), 7, 9]]
-        >>> s1 = limnpy.DataSource('source1', 'Source 1', ['date', 'x', 'y'], rows1)
-        >>> limnpy.writegraph('my_first_default_autograph', 'My First Default Autograph', [s1])
-        >>> hash(open('./graphs/my_first_default_autograph.json').read())
+        >>> s1 = limnpy.DataSource('source1', 'Source 1', rows, labels=['date', 'x', 'y'])
+        >>> g = limnpy.Graph('my_first_default_autograph', 'My First Default Autograph', [s1])
+        >>> g.write(basedir='doctest_tmp')
+        >>> hash(open('doctest_tmp/graphs/my_first_default_autograph.json').read())
         -9151737922308482552
 
     """
@@ -226,9 +270,9 @@ class Graph(object):
             },
         "desc": ""
         }
-    
 
-    def __init__(self, id, title, sources, slug=None, metric_ids=None):
+
+    def __init__(self, id, title, sources, metric_ids=None, slug=None):
         """
         Construct a Python object representing a limn graph.
         Args:
@@ -236,10 +280,10 @@ class Graph(object):
             title      (str)   : title which will be displayed above graph
             sources    (list)  : list of limnpy.DataSource objects from which to construct the graph
         Kwargs:
-            slug       (str)   : slug used to identify the graph by url (via {domain}/graphs/slug)
-                                 defaults to the value of `id`
             metric_ids (list)  : list of tuples (datasource_id, column_name) to plot if None will
                                  plot all of the columns from all of the datasources
+            slug       (str)   : slug used to identify the graph by url (via {domain}/graphs/slug)
+                                 defaults to the value of `id`
         """
         self.__graph__ = Graph.default_graph
 
@@ -253,8 +297,9 @@ class Graph(object):
         if metric_ids is None:
             metric_ids = []
             for source in sources:
-                for col_id in range(1, len(source.__source__['columns']['labels'])):
-                    metric_ids.append((source.__source__['id'], col_id))
+                labels = set(source.__source__['columns']['labels']) - set(['date'])
+                source_id_repeat = itertools.repeat(source.__source__['id'])
+                metric_ids.extend(list(itertools.izip(source_id_repeat,labels)))
 
         color_map = self.get_color_map(len(metric_ids))
 
@@ -263,7 +308,7 @@ class Graph(object):
         for i, (source_id, col_key) in enumerate(metric_ids):
             source = source_dict[source_id]
             try:
-                m = Graph.get_metric(source_dict[source_id], i, col_key, color_map[i])
+                m = Graph.get_metric(source, i, col_key, color_map[i])
                 metrics.append(m)
             except ValueError:
                 logger.warning('Could not find column label: %s in datasource: %s', col_key, source.__source__['id'])
@@ -284,7 +329,9 @@ class Graph(object):
             os.mkdir(graphdir)
         graph_fn = os.path.join(graphdir, self.__graph__['id'] + '.json')
 
-        json.dump(self.__graph__, codecs.open(graph_fn, encoding='utf-8', mode='w'), indent=2)
+        graph_f = codecs.open(graph_fn, encoding='utf-8', mode='w')
+        json.dump(self.__graph__, graph_f, indent=2)
+        graph_f.close()
     
 
     @classmethod
@@ -302,16 +349,13 @@ class Graph(object):
         else:
             color_map = family[n]
         str_color_map = ['rgb(%d,%d,%d)' % color_tuple for color_tuple in color_map]
-        print str_color_map
         return str_color_map
     
 
     @classmethod
     def get_metric(cls, source, index, col_key, color=None):
         """ constructs a limn-compatible dictionary represnting a metric """
-        if isinstance(col_key, basestring):
-            col_key = source.__source__['columns']['labels'].index(col_key)
-        assert isinstance(col_key, int), 'col_key must either be a column index as an int or column label as a str'
+        col_idx = source.__source__['columns']['labels'].index(col_key)
         metric = {
             "index": index,
             "scale": 1,
@@ -322,7 +366,7 @@ class Graph(object):
                 },
             "color": color,
             "format_axis": None,
-            "label": "",
+            "label": col_key,
             "disabled": False,
             "visible": True,
             "format_value": None,
@@ -330,6 +374,6 @@ class Graph(object):
             "source_id": source.__source__['id'],
             "chartType": None,
             "type": "int",
-            "source_col": col_key
+            "source_col": col_idx
             }
         return metric
