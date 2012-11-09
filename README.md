@@ -31,7 +31,7 @@ to run the tests, so you'll want to remove the `limnpy/doctest_tmp` directory af
 
 ## Usage
 
-To dump data to file simple construct an instance of a `limnpy.DataSource` and call its `write()` method.
+To dump data to file simply construct an instance of a `limnpy.DataSource` and call its `write()` method.
 
 ````python
 import limnpy, datetime
