@@ -35,30 +35,31 @@ class DataSource(object):
         >>> ds = limnpy.DataSource('test_source', 'Test Source', rows, labels=['date', 'x', 'y'])
         >>> ds.write(basedir='doctest_tmp')
         >>> hash(open('doctest_tmp/datasources/test_source.yaml').read())
-        -1285371890146798022
+        -6541337400615626104
         >>> hash(open('doctest_tmp/datafiles/test_source.csv').read())
         -9093178411304175629
 
         >>> ds.write_graph(basedir='doctest_tmp') # plot all columns
         >>> hash(open('doctest_tmp/graphs/test_source.json').read())
+        -6063105524197132446
 
         >>> ds.__source__['id'] = 'test_source_just_x'
         >>> ds.write_graph(metric_ids=['x'], basedir='doctest_tmp') # just plot x
-        >>> hash(open('doctest_tmp/graphs/test_source.json').read())
+        >>> hash(open('doctest_tmp/graphs/test_source_just_x.json').read())
+        4932947664539037265
 
-        >>> import limnpy, datetime
         >>> rows = [{'date' : datetime.date(2012, 9, 1), 'x' : 1, 'y' : 2},
         ...          {'date' : datetime.date(2012, 10, 1), 'x' : 7, 'y' : 9}]
         >>> ds = limnpy.DataSource('test_source', 'Test Source', rows)
         >>> ds.write(basedir='doctest_tmp')
         >>> hash(open('doctest_tmp/datasources/test_source.yaml').read())
+        -6541337400615626104
 
-        >>> import limnpy, datetime
         >>> rows = {'date' : [datetime.date(2012, 9, 1), datetime.date(2012, 10, 1)], 'x' : [1, 7], 'y' : [2, 9]}
         >>> ds = limnpy.DataSource('test_source', 'Test Source', rows)
         >>> ds.write(basedir='doctest_tmp')
         >>> hash(open('doctest_tmp/datasources/test_source.yaml').read())
-        
+        -6541337400615626104
 
     """
 
@@ -226,19 +227,19 @@ class Graph(object):
         >>> g = limnpy.Graph('my_first_autograph', 'My First Autograph', [s1, s2], [('source1', 'x'), ('source2', 'y')])
         >>> g.write(basedir='doctest_tmp')
         >>> hash(open('doctest_tmp/graphs/my_first_autograph.json').read())
-        -6544027546604027079
+        -7062740022070187030
 
     or just pass in the sources and a graph will be constructed containing all of the columns
     in all of the sources
 
-        >>> import limnpy, datetime
         >>> rows = [[datetime.date(2012, 9, 1), 1, 2],
         ...         [datetime.date(2012, 10, 1), 7, 9]]
         >>> s1 = limnpy.DataSource('source1', 'Source 1', rows, labels=['date', 'x', 'y'])
         >>> g = limnpy.Graph('my_first_default_autograph', 'My First Default Autograph', [s1])
         >>> g.write(basedir='doctest_tmp')
         >>> hash(open('doctest_tmp/graphs/my_first_default_autograph.json').read())
-        -9151737922308482552
+        5355513043120506668
+
 
     """
     
