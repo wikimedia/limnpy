@@ -340,7 +340,7 @@ class Graph(object):
             color_map = [family[3][0], family[3][2]]
         if n < 3:
             color_map = family[3][:n]
-        elif n > 11:
+        elif n >= max(family.keys()):
             logger.warning('too many metrics, looping over color space')
             color_map = itertools.cycle(family[11])
             color_map = list(itertools.islice(color_map, None, n))
