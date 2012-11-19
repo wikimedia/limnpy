@@ -342,12 +342,12 @@ class Graph(object):
             color_map = family[3][:n]
         elif n >= max(family.keys()):
             logger.warning('too many metrics, looping over color space')
-            color_map = itertools.cycle(family[11])
+            color_map = itertools.cycle(family[max(family.keys())])
             color_map = list(itertools.islice(color_map, None, n))
         else:
             color_map = family[n]
-        str_color_map = ['rgb(%d,%d,%d)' % color_tuple for color_tuple in color_map]
-        return str_color_map
+        #str_color_map = ['rgb(%d,%d,%d)' % color_tuple for color_tuple in color_map]
+        return color_map
     
 
     @classmethod
