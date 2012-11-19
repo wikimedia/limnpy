@@ -9,5 +9,9 @@ setup(
     url='http://www.github.com/embr/limnpy',
     author='Evan Rosen',
     author_email='erosen@wikimedia.org',
+    install_requires=[
+        "pandas >= 0.9.0",
+        "pyyaml >= 3.10"
+        ]
     )
 

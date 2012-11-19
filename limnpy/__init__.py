@@ -4,7 +4,7 @@ import datetime
 from operator import itemgetter
 from collections import Sequence, MutableSequence
 import codecs
-import colorbrewer
+#import colorbrewer
 import itertools
 import pandas as pd
 import pprint
@@ -335,7 +335,14 @@ class Graph(object):
     @classmethod
     def get_color_map(cls, n):
         """ get colorspace based on number of metrics using colorbrewer """
-        family = colorbrewer.Set2
+        #family = colorbrewer.Set2
+        family = {
+            3: ['rgb(102,194,165)', 'rgb(252,141,98)', 'rgb(141,160,203)'],
+            4: ['rgb(102,194,165)', 'rgb(252,141,98)', 'rgb(141,160,203)', 'rgb(231,138,195)'],
+            5: ['rgb(102,194,165)', 'rgb(252,141,98)', 'rgb(141,160,203)', 'rgb(231,138,195)', 'rgb(166,216,84)'],
+            6: ['rgb(102,194,165)', 'rgb(252,141,98)', 'rgb(141,160,203)', 'rgb(231,138,195)', 'rgb(166,216,84)', 'rgb(255,217,47)'],
+            7: ['rgb(102,194,165)', 'rgb(252,141,98)', 'rgb(141,160,203)', 'rgb(231,138,195)', 'rgb(166,216,84)', 'rgb(255,217,47)', 'rgb(229,196,148)'],
+            8: ['rgb(102,194,165)', 'rgb(252,141,98)', 'rgb(141,160,203)', 'rgb(231,138,195)', 'rgb(166,216,84)', 'rgb(255,217,47)', 'rgb(229,196,148)', 'rgb(179,179,179)']
         if n == 2:
             color_map = [family[3][0], family[3][2]]
         if n < 3:
