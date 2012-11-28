@@ -11,7 +11,6 @@ import pprint
 import copy
 
 logger = logging.getLogger(__name__)
-logger.debug('limnpy loaded and using logger with name: %s', __name__)
 
 limn_date_fmt = '%Y/%m/%d'
 
@@ -115,23 +114,27 @@ class DataSource(object):
         self.__source__['columns']['types'] = types
 
         # NOTE: though we construct the __data__ member here, we allow the possibility
-        # that it will change before we write, so all derived fields get set in write()
+        # that it will change before we write, so all derived fields get set in infer() which is called by write()
         try:
             self.__data__ = pd.DataFrame(data)
         except:
             logger.exception('Error constructing DataFrame from data: %s.  See pandas.DataFrame documentation for help', data)
         if list(self.__data__.columns) == range(len(self.__data__.columns) or labels is not None):
             logger.debug('labels were not set by Pandas, setting manually')
-            # this means the `data` object didn't include labels
+            # this means the `data` object didn't include column labels
             if labels is not None:
                 self.__data__.rename(columns=dict(enumerate(labels)), inplace=True)
             else:
-                raise ValueError('`data` does not contain label information, column names must be passed in with the labels arg')
-        assert self.date_key in self.__data__.columns, 'date_key: `%s` must be in column labels: %s' % (date_key, list(self.__data__.columns))
-        try:
-            self.__data__.set_index(self.date_key, inplace=True)
-        except:
-            logger.debug('error resetting index because self.__data__.columns=%s', self.__data__.columns)
+                raise ValueError('`data` does not contain label information, column names must be passed in with the `labels` arg')
+
+        if not isinstance(self.__data__.index, pd.tseries.index.DatetimeIndex):
+            # if `data` is just another pd.DataFrame from a DataSource or datetime-indexed, don't to set index
+            if self.date_key not in self.__data__.columns:
+                raise ValueError('date_key: `%s` must be in column labels: %s' % (date_key, list(self.__data__.columns)))
+            try:
+                self.__data__.set_index(self.date_key, inplace=True)
+            except:
+                logger.debug('error resetting index because self.__data__.columns=%s', self.__data__.columns)
         self.infer() # can't hurt to infer now. this way we can make graphs before writing the datasource
 
 
