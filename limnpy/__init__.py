@@ -11,6 +11,7 @@ import pprint
 import copy
 
 logger = logging.getLogger(__name__)
+logger.debug('limnpy loaded and using logger with name: %s', __name__)
 
 limn_date_fmt = '%Y/%m/%d'
 
@@ -130,7 +131,7 @@ class DataSource(object):
         try:
             self.__data__.set_index(self.date_key, inplace=True)
         except:
-            print 'error resetting index because self.__data__.columns=%s' % self.__data__.columns
+            logger.debug('error resetting index because self.__data__.columns=%s', self.__data__.columns)
         self.infer() # can't hurt to infer now. this way we can make graphs before writing the datasource
 
 
@@ -143,6 +144,7 @@ class DataSource(object):
         # parse dates, sort, and format
         self.__data__.index = pd.to_datetime(self.__data__.index)
         self.__data__.sort()
+        self.__data__ = self.__data__.fillna(0)
         self.__data__.index = self.__data__.index\
                                            .astype(pd.lib.Timestamp)\
                                            .map(lambda ts : ts.strftime(limn_date_fmt))
@@ -198,7 +200,7 @@ class DataSource(object):
         self.infer()
 
         if metric_ids is not None:
-            metric_ids = list(itertools.izip(itertools.repeat(self.__source__['id']), metric_ids))
+            metric_ids = zip(itertools.repeat(self.__source__['id']), metric_ids)
             logger.debug(metric_ids)
         return Graph(self.__source__['id'], self.__source__['name'], [self], metric_ids)
 
@@ -209,6 +211,7 @@ class DataSource(object):
         optionally specified basedir (defaults to .)"""
         g = self.get_graph(metric_ids)
         g.write(basedir)
+        return g
 
 
 class Graph(object):
@@ -283,7 +286,7 @@ class Graph(object):
             slug       (str)   : slug used to identify the graph by url (via {domain}/graphs/slug)
                                  defaults to the value of `id`
         """
-        self.__graph__ = Graph.default_graph
+        self.__graph__ = copy.deepcopy(Graph.default_graph)
 
         self.__graph__['id'] = id
         self.__graph__['name'] = title
@@ -297,7 +300,7 @@ class Graph(object):
             for source in sources:
                 labels = set(source.__source__['columns']['labels']) - set(['date'])
                 source_id_repeat = itertools.repeat(source.__source__['id'])
-                metric_ids.extend(list(itertools.izip(source_id_repeat,labels)))
+                metric_ids.extend(zip(source_id_repeat,labels))
 
         color_map = self.get_color_map(len(metric_ids))
 
@@ -386,3 +389,40 @@ class Graph(object):
             "source_col": col_idx
             }
         return metric
+
+class Dashboard(object):
+
+    default_dashboard = {
+        'name' : '',
+        'headline' : '',
+        'subhead'  : '',
+        'tabs': []}
+
+    def __init__(self, name, headline = '', subhead='', slug=None, tabs=None):
+        self.__dashboard__ = copy.deepcopy(Dashboard.default_dashboard)
+        self.__dashboard__['name'] = name
+        self.__dashboard__['headline'] = headline
+        self.__dashboard__['subhead'] = subhead
+        self.__dashboard__['tabs'] = tabs if tabs is not None else []
+        self.slug = slug
+
+    def add_tab(self, name, graph_ids=[]):
+        tab =  {  
+            "name" : name,
+            "graph_ids" : graph_ids}
+        self.__dashboard__['tabs'].append(tab)
+
+
+    def write(self, basedir='.'):
+        db_dir = os.path.join(basedir, 'dashboards')
+        if not os.path.exists(db_dir):
+            os.makedirs(db_dir)
+
+        if self.slug is None:
+            self.slug = self.__dashboard__.name.replace(' ', '_').lower() + '.json'
+        db_path = os.path.join(db_dir, self.slug)
+            
+        json.dump(self.__dashboard__, open(db_path, 'w'), indent=2)
+
+    def __str__(self):
+        return json.dumps(self.__dashboard__, indent=2)
