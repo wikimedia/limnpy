@@ -144,4 +144,4 @@ Alternatively, you can pass in a list of `dict`s to the Dashbaord contructor, wh
  {'name' : 'ancillary', 'graph_ids' : ['false_alarms']}]
 ````
 
-And to finally create the JSON file which the server will read, call `db.write(basedir)` to place the file in the appropriate subdirectory ('dashboards') of the `basedir`
+And to finally create the JSON file which the server will read, call `db.write(basedir)` to place the file in the appropriate subdirectory ('dashboards') of 'basedir'
