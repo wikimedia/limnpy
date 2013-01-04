@@ -2,6 +2,9 @@ import argparse
 import pandas as pd
 import os.path
 import datetime
+import sys
+
+sys.path.insert(0, os.path.abspath('..'))
 
 import limnpy
 
