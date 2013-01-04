@@ -1,5 +1,6 @@
 import argparse
 import pandas as pd
+import numpy as np
 import os.path
 import datetime
 import sys
@@ -30,9 +31,10 @@ def main():
     date_parser = lambda s : datetime.datetime.strptime(s, args.datefmt)
 
     if not args.pivot:
-        df = pd.read_table(args.csv, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser)
+        df = pd.read_table(args.csv, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser, header=None)
     else:
-        df_long = pd.read_table(args.csv, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser)
+        df_long = pd.read_table(args.csv, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser, header=None)
+        print df_long
 
         if isinstance(args.datecol, int):
             args.datecol = df_long.columns[args.datecol]
@@ -41,7 +43,7 @@ def main():
         if isinstance(args.valcol, int):
             args.valcol = df_long.columns[args.valcol]
 
-        df = df_long.pivot(index=args.datecol, columns=args.metriccol, values=args.valcol)
+        df = pd.pivot_table(df_long, rows=[args.datecol], cols=[args.metriccol], values=args.valcol, aggfunc=np.sum)
 
 
     print df
