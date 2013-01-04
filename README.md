@@ -122,3 +122,26 @@ s2.write(basedir='doctest_tmp')
 g = limnpy.Graph('my_first_autograph', 'My First Autograph', [s1, s2], [('source1', 'x'), ('source2', 'y')])                                                                                 
 g.write(basedir='doctest_tmp')                                      
 ````
+
+### Dashboards
+If you need to make a lot of dashboards, or don't want to worry about manually writing valid JSON, this tool is for you.  You can programmatically construct an instance of `limnpy.Dashboard` and then call its `write()` method to create the appropriate file.  First, call the constructor and specify the slug, title, and heading:
+
+````python
+db = limnpy.Dashboard('sobchak', 'Sobchak Security', 'Dashboard')
+````
+
+Which will construct a dashboard object which will be accessible at "your.domain.org/dashboards/sobchak". To add actual graphs you then call the dashboard object's `add_graph(name, graph_ids)` method, like this:
+
+````python
+db.add_tab('core', ['intruders'])
+db.add_tab('core', [intruder_graph.__graph__['id']])
+````
+
+Alternatively, you can pass in a list of `dict`s to the Dashbaord contructor, which is formatted like this:
+
+````python
+[{'name' : 'core', 'graph_ids' : ['intruders_total', 'intruders_daily']},
+ {'name' : 'ancillary', 'graph_ids' : ['false_alarms']}]
+````
+
+And to finally create the JSON file which the server will read, call `db.write(basedir)` to place the file in the appropriate subdirectory ('dashboards') of 'basedir'

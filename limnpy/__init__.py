@@ -128,13 +128,15 @@ class DataSource(object):
                 raise ValueError('`data` does not contain label information, column names must be passed in with the `labels` arg')
 
         if not isinstance(self.__data__.index, pd.tseries.index.DatetimeIndex):
+            logger.debug('dealing with a DataFrame instance that does NOT have a datetime index.  type(index)=%s', type(self.__data__.index))
             # if `data` is just another pd.DataFrame from a DataSource or datetime-indexed, don't to set index
             if self.date_key not in self.__data__.columns:
                 raise ValueError('date_key: `%s` must be in column labels: %s' % (date_key, list(self.__data__.columns)))
             try:
                 self.__data__.set_index(self.date_key, inplace=True)
             except:
-                logger.debug('error resetting index because self.__data__.columns=%s', self.__data__.columns)
+                logger.exception('error resetting index because self.__data__.columns=%s', self.__data__.columns)
+                raise ValueError('could not set_index because self.__data__.columns=%s', self.__data__.columns)
         self.infer() # can't hurt to infer now. this way we can make graphs before writing the datasource
 
 
@@ -199,7 +201,11 @@ class DataSource(object):
 
 
     def get_graph(self, metric_ids=None):
-        """ Returns a limnpy.Graph object with each of the (selected) datasource's columns """
+        """
+        Returns a limnpy.Graph object with each of the (selected) datasource's columns 
+        Args:
+            metric_ids (list(str)) :  a list of the datasource columns to use in the graph
+        """
         self.infer()
 
         if metric_ids is not None:
@@ -211,7 +217,12 @@ class DataSource(object):
     def write_graph(self, metric_ids=None, basedir='.'):
         """
         Writes a graph with the (selected) datasource columns to the graphs dir in the 
-        optionally specified basedir (defaults to .)"""
+        optionally specified basedir (defaults to .)
+        Args:
+            metric_ids (list(str)) :  a list of the datasource columns to use in the graph (defaults to all)
+            basedir (str)          :  specifies the directory in which to place the datasources
+                                      and datafiles directories (defaults to `.`)
+        """
         g = self.get_graph(metric_ids)
         g.write(basedir)
         return g
@@ -401,13 +412,13 @@ class Dashboard(object):
         'subhead'  : '',
         'tabs': []}
 
-    def __init__(self, name, headline = '', subhead='', slug=None, tabs=None):
+    def __init__(self, id, name, headline = '', subhead='', tabs=None):
+        self.id = id
         self.__dashboard__ = copy.deepcopy(Dashboard.default_dashboard)
         self.__dashboard__['name'] = name
         self.__dashboard__['headline'] = headline
         self.__dashboard__['subhead'] = subhead
         self.__dashboard__['tabs'] = tabs if tabs is not None else []
-        self.slug = slug
 
     def add_tab(self, name, graph_ids=[]):
         tab =  {  
@@ -421,10 +432,7 @@ class Dashboard(object):
         if not os.path.exists(db_dir):
             os.makedirs(db_dir)
 
-        if self.slug is None:
-            self.slug = self.__dashboard__.name.replace(' ', '_').lower() + '.json'
-        db_path = os.path.join(db_dir, self.slug)
-            
+        db_path = os.path.join(db_dir, self.id + '.json')
         json.dump(self.__dashboard__, open(db_path, 'w'), indent=2)
 
     def __str__(self):
