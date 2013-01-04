@@ -12,6 +12,9 @@ setup(
     install_requires=[
         "pandas >= 0.9.0",
         "pyyaml >= 3.10"
-        ]
+        ],
+    entry_points={
+        'console_scripts': ['limnpify = limnpy.limnpify:main']
+        }
     )
 
