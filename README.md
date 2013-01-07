@@ -8,7 +8,7 @@ A library for creating [limn](https://github.com/wikimedia/limn) compatible data
 * [Library Usage](#usage)
     * [Acceptable Data Formats](#acceptable data formats)
     * [Graphs](#graphs)
-    * [Dashbaords](#dashboards)
+    * [Dashboards](#dashboards)
 * [Command Line Utility](#command line utility)
 
 ## Introduction
