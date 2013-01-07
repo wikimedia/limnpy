@@ -13,7 +13,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('csv', help='name of file to be transformed')
     parser.add_argument('--delim', default='\t', help='delim to use for input csv')
-    parser.add_argument('--header', nargs='+', help='')
+    parser.add_argument('--header', default=None, nargs='+', help='')
 
     parser.add_argument('--pivot', default=False, action='store_true', help='whether to try and automatically pivot the data')
     parser.add_argument('--datecol', type=int, default=0, help='the date column')
@@ -31,9 +31,9 @@ def main():
     date_parser = lambda s : datetime.datetime.strptime(s, args.datefmt)
 
     if not args.pivot:
-        df = pd.read_table(args.csv, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser, header=None)
+        df = pd.read_table(args.csv, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser, header=args.header)
     else:
-        df_long = pd.read_table(args.csv, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser, header=None)
+        df_long = pd.read_table(args.csv, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser, header=args.header)
         print df_long
 
         if isinstance(args.datecol, int):
