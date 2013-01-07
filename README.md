@@ -6,10 +6,10 @@ A library for creating [limn](https://github.com/wikimedia/limn) compatible data
 * [Introduction](#introdcution)
 * [Installation](#installation)
 * [Library Usage](#usage)
-    * [Acceptable Data Formats](#acceptable data formats)
+    * [Acceptable Data Formats](#acceptable-data-formats)
     * [Graphs](#graphs)
     * [Dashboards](#dashboards)
-* [Command Line Utility](#command line utility)
+* [Command Line Utility](#command-line-utility)
 
 ## Introduction
 
