@@ -14,7 +14,7 @@ setup(
         "pyyaml >= 3.10"
         ],
     entry_points={
-        'console_scripts': ['limnpify = limnpy.limnpify:main']
+        'console_scripts': ['limnify = limnpy.limnify:main']
         }
     )
 
