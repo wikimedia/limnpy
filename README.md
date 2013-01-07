@@ -163,7 +163,7 @@ $ limnify my_data.csv
 ````
 
 and it creates the files `./datafiles/my_data.csv` and `./datasources/my_data.yaml`.  But inevitably, your data will have it's own oddities.  `limnify` allows you to accomodate a variety of ways in which your data may need special care by using the various options described below.  But it's probably worth noting three main things about what `limnify` expects so you don't get a bunch of errors:
-* it needs to know which row is the date column (just like the rest of `limnpy`)
+* it needs to know which column contains the date (just like the rest of `limnpy`)
 * it needs to give each column a name so that end limn users to tell what is what
 * it can accomodate "long" format data which it will pivot by summing the values in certain columns when grouped by other columns.
 
