@@ -33,7 +33,7 @@ $ cd limnpy/
 $ pip install -e .
 ````
 
-to run the tests the following command from inside the main directory:
+run the tests with the following command from inside the main directory:
 
 ````bash
 $ python -m doctest limnpy/__init__.py
