@@ -82,8 +82,6 @@ class DataSource(object):
 
     default_source['chart'] = {'chartType' : 'dygraphs'}    
     
-    date_fmt='%Y/%m/%d'
-
     def __init__(self, limn_id, limn_name, data, labels=None, types=None, date_key='date', date_fmt='%Y/%m/%d'):
         """
         Constructs a Python representation of Limn (github.com/wikimedia/limn) datasource
