@@ -39,7 +39,7 @@ def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('data', help='name of file to be limnified')
     parser.add_argument('--delim', default='\t', help='delim to use for input file')
-    parser.add_argument('--header', default=0, nargs='+', help='this is a space separated list of names to use as the header row'
+    parser.add_argument('--names', default=0, nargs='+', help='this is a space separated list of names to use as the header row'
                 'If your data doesn\'t already have a header row you will need to pass in a list of names to use, otherwise it'
                 'will assume the first row is a header and then produce confusing data sources.  Remember, these names will be'
                 'displayed in the graph editing interface')
@@ -66,11 +66,11 @@ def main():
         date_parser = dateutil.parser.parse
 
     if not args.pivot:
-        df = pd.read_table(args.data, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser, header=args.header)
+        df = pd.read_table(args.data, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser, names=args.names)
         if isinstance(args.datecol, int):
             args.datecol = df.columns[args.datecol] 
     else:
-        df_long = pd.read_table(args.data, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser, header=args.header)
+        df_long = pd.read_table(args.data, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser, names=args.names)
 
         if isinstance(args.datecol, int):
             args.datecol = df_long.columns[args.datecol]
