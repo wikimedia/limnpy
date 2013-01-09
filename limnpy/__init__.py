@@ -11,6 +11,7 @@ import pprint
 import copy
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 limn_date_fmt = '%Y/%m/%d'
 
@@ -116,7 +117,7 @@ class DataSource(object):
         # NOTE: though we construct the __data__ member here, we allow the possibility
         # that it will change before we write, so all derived fields get set in infer() which is called by write()
         try:
-            self.__data__ = pd.DataFrame(data)
+            self.__data__ = pd.DataFrame(copy.deepcopy(data))
         except:
             logger.exception('Error constructing DataFrame from data: %s.  See pandas.DataFrame documentation for help', data)
         if list(self.__data__.columns) == range(len(self.__data__.columns) or labels is not None):
@@ -131,7 +132,8 @@ class DataSource(object):
             logger.debug('dealing with a DataFrame instance that does NOT have a datetime index.  type(index)=%s', type(self.__data__.index))
             # if `data` is just another pd.DataFrame from a DataSource or datetime-indexed, don't to set index
             if self.date_key not in self.__data__.columns:
-                raise ValueError('date_key: `%s` must be in column labels: %s' % (date_key, list(self.__data__.columns)))
+                raise ValueError('date_key: `%s` must be in column labels: %s\ntype(self.__data__.index): %s, self.__data__.index: %s' %
+                        (date_key, list(self.__data__.columns), type(self.__data__.index), self.__data__.index))
             try:
                 self.__data__.set_index(self.date_key, inplace=True)
             except:
@@ -147,19 +149,28 @@ class DataSource(object):
         it and the meta data will accurately reflect any added data
         """
         # parse dates, sort, and format
+        # logger.debug('entering infer with self.__data__:\n%s', self.__data__)
         self.__data__.index = pd.to_datetime(self.__data__.index)
+        # logger.debug('converted index to timestamps.  self.__data__.index:\n%s', self.__data__.index)
+        # logger.debug('id: %s', self.__source__['id'])
+        # logger.debug('set index to be a datetime index. type(self.__data__.index) = %s', type(self.__data__.index))
+        # logger.debug('id(self) = %s', id(self))
         self.__data__.sort()
-        self.__data__ = self.__data__.fillna(0)
-        self.__data__.index = self.__data__.index\
-                                           .astype(pd.lib.Timestamp)\
-                                           .map(lambda ts : ts.strftime(limn_date_fmt))
-        
+        # logger.debug('columns: %s', self.__data__.columns)
+        # logger.debug('reverse columns: %s', list(reversed(self.__data__.sum().argsort(order=True))))
+        # self.__data__ = self.__data__[self.__data__.columns[list(reversed(self.__data__.sum().argsort(order=True)))]]
+        logger.debug('self.__data__:\n%s', self.__data__)
+        # self.__data__ = self.__data__.fillna(0) # leaving the NAs in until writing is better so that we can just write ''
+
         # fill in data dependent keys
         self.__source__['columns']['labels'] = ['date'] + list(self.__data__.columns)
-        self.__source__['timespan']['start'] = self.__data__.index[0]
-        self.__source__['timespan']['end'] = self.__data__.index[-1]
+        str_ind = self.__data__.index.astype(pd.lib.Timestamp).map(lambda ts : ts.strftime(limn_date_fmt))
+        if len(str_ind) > 0:
+            self.__source__['timespan']['start'] = str_ind[0]
+            self.__source__['timespan']['end'] = str_ind[-1]
         if self.__source__['columns']['types'] is None:
             self.__source__['columns']['types'] = ['date'] + ['int'] * len(self.__data__.columns)
+        # logger.debug('exiting infer with self.__data__:\n%s', self.__data__)
 
 
     def write(self, basedir='.'):
@@ -172,6 +183,9 @@ class DataSource(object):
         """
         
         self.infer()
+        self.__data__.index = self.__data__.index\
+                                           .astype(pd.lib.Timestamp)\
+                                           .map(lambda ts : ts.strftime(limn_date_fmt))
 
         # make dirs and write files
         df_dir = os.path.join(basedir, 'datafiles')

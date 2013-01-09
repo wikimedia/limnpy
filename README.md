@@ -3,6 +3,14 @@ limnpy
 
 A library for creating [limn](https://github.com/wikimedia/limn) compatible datasources and datafiles
 
+* [Introduction](#introdcution)
+* [Installation](#installation)
+* [Library Usage](#usage)
+    * [Acceptable Data Formats](#acceptable-data-formats)
+    * [Graphs](#graphs)
+    * [Dashboards](#dashboards)
+* [Command Line Utility](#command-line-utility)
+
 ## Introduction
 
 [`limn`](github.com/wikimedia/limn), a visualization tool for non-programmers, still requires at least one or two programmers
@@ -13,14 +21,19 @@ just want to write a `datafile` and `datasource` pair without worrying about the
 
 ## Installation
 
-`limnpy` is packaged with setuptools, so you have some options, but I recommend
+`limnpy` is packaged with setuptools, so you have some options, but I recommend either
 
 ````bash
+$ pip install -e git+git://github.com/embr/limnpy.git#egg=limnpy-0.1.0
+````
+or
+````bash
+$ git clone git://github.com/embr/limnpy.git
 $ cd limnpy/
 $ pip install -e .
 ````
 
-run the tests the following command from inside the main directory:
+run the tests with the following command from inside the main directory:
 
 ````bash
 $ python -m doctest limnpy/__init__.py
@@ -145,3 +158,63 @@ Alternatively, you can pass in a list of `dict`s to the Dashbaord contructor, wh
 ````
 
 And to finally create the JSON file which the server will read, call `db.write(basedir)` to place the file in the appropriate subdirectory ('dashboards') of 'basedir'
+
+## Command Line Utility
+
+Installing `limnpy` also installs `limnify`, which is a highly customizable tool for taking turning a csv-like file into a limn-compatible datasource or graph which can be directly served by a limn installation.  In the simplest case, you just call
+
+````
+$ limnify my_data.csv
+````
+
+and it creates the files `./datafiles/my_data.csv` and `./datasources/my_data.yaml`.  But inevitably, your data will have it's own oddities.  `limnify` allows you to accomodate a variety of ways in which your data may need special care by using the various options described below.  But it's probably worth noting three main things about what `limnify` expects so you don't get a bunch of errors:
+* it needs to know which column contains the date (just like the rest of `limnpy`)
+* it needs to give each column a name so that end limn users to tell what is what
+* it can accomodate "long" format data which it will pivot by summing the values in certain columns when grouped by other columns.
+
+Here is the help page:
+
+````
+$ limnify --help
+usage: limnify [-h] [--delim DELIM] [--header HEADER [HEADER ...]]
+               [--datecol DATECOL] [--datefmt DATEFMT] [--pivot]
+               [--metriccol METRICCOL] [--valcol VALCOL] [--basedir BASEDIR]
+               [--name NAME [NAME ...]] [--id ID] [--write_graph WRITE_GRAPH]
+               data
+
+positional arguments:
+  data                  name of file to be limnified
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --delim DELIM         delim to use for input file (default: ,)
+  --header HEADER [HEADER ...]
+                        this is a space separated list of names to use as the
+                        header rowIf your data doesn't already have a header
+                        row you will need to pass in a list of names to use,
+                        otherwise itwill assume the first row is a header and
+                        then produce confusing data sources. Remember, these
+                        names will bedisplayed in the graph editing interface
+                        (default: None)
+  --datecol DATECOL     the date column name or index--required if it is
+                        different from `date` (default: 0)
+  --datefmt DATEFMT     format to use with datetime.strptime, default uses
+                        dateutil.parser.parse (default: None)
+  --pivot               whether to try and pivot the data (only supports sum
+                        aggregation for now) (default: False)
+  --metriccol METRICCOL
+                        the column name or index to use for creating the
+                        column (metric) names when pivoting (default: 1)
+  --valcol VALCOL       the column in which to find the actual data to be
+                        plotted when pivoting (default: 2)
+  --basedir BASEDIR     directory in which to place the output datasources,
+                        datafiles and graphs directories (default: .)
+  --name NAME [NAME ...]
+                        name of datasource which will be displayed in the UI
+                        (default: None)
+  --id ID               the slug / id used to uniquely identify the datasource
+                        within a limn installation (default: None)
+  --write_graph WRITE_GRAPH
+                        whether to write a graph file containing all columns
+                        from the datasource (default: False)
+````
