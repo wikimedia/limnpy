@@ -82,7 +82,7 @@ def main():
         df = pd.pivot_table(df_long, rows=[args.datecol], cols=[args.metriccol], values=args.valcol, aggfunc=np.sum)
 
 
-    sys.stderr.write('output data format (formatted by pandas.DataFrame version):\n%s\n' % df_long)
+    sys.stderr.write('output data format (formatted by pandas.DataFrame version):\n%s\n' % df)
 
     if args.name is None:
         args.name = os.path.splitext(os.path.split(args.data)[1])[0]
