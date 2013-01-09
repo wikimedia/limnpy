@@ -95,7 +95,7 @@ def main():
         args.name = os.path.splitext(os.path.split(args.data)[1])[0]
     if args.id is None:
         args.id = os.path.splitext(os.path.split(args.data)[1])[0]
-    ds = limnpy.DataSource(args.id, args.name, df, date_key=args.datecol)
+    ds = limnpy.DataSource(args.id, args.name, df, date_key=args.datecol, date_fmt=args.datefmt)
     ds.write(args.basedir)
 
     if args.write_graph:
