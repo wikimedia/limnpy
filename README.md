@@ -218,3 +218,16 @@ optional arguments:
                         whether to write a graph file containing all columns
                         from the datasource (default: False)
 ````
+
+Here is a simple example:
+
+````bash
+$ head -n2 test.tsv
+2013-01-01_00   Asia	535984
+2013-01-01_00	Africa	20536
+$ limnify --datefmt="%Y-%m-%d_%H" --pivot --header Hour Continent Count --datecol=Hour test.tsv
+...
+$ head datafiles/test.csv
+date,Africa,Asia,Europe,North America,Oceania,South America,Unknown
+2013/01/01,20536.0,535984.0,1863240.0,1963952.0,86483.0,71855.0,4908.0
+````
