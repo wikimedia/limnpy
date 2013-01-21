@@ -37,7 +37,7 @@ def main():
     int_or_str = lambda s : int(s) if isinstance(s,str) and s.isdigit() else s
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('data', help='name of file to be limnified')
+    parser.add_argument('data', help='name of file to be limnified', default='STDIN', nargs='?')
     parser.add_argument('--delim', default='\t', help='delim to use for input file')
     parser.add_argument('--header', default=None, nargs='+', help='this is a space separated list of names to use as the header row'
                 'If your data doesn\'t already have a header row you will need to pass in a list of names to use, otherwise it'
@@ -58,25 +58,31 @@ def main():
     parser.add_argument('--write_graph', default=False, help='whether to write a graph file containing all columns from the datasource')
 
     args = parser.parse_args()
-    pprint.pprint(vars(args))
+    # pprint.pprint(vars(args))
 
     if args.datefmt:
         date_parser = lambda s : datetime.datetime.strptime(s, args.datefmt)
     else:
         date_parser = dateutil.parser.parse
 
+        
+    if args.data == 'STDIN':
+        data = sys.stdin
+    else:
+        data = args.data
+
     if not args.pivot:
         if args.header:
-            df = pd.read_table(args.data, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser, names=args.header)
+            df = pd.read_table(data, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser, names=args.header)
         else:
-            df = pd.read_table(args.data, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser)
+            df = pd.read_table(data, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser)
         if isinstance(args.datecol, int):
             args.datecol = df.columns[args.datecol] 
     else:
         if args.header:
-            df_long = pd.read_table(args.data, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser, names=args.header)
+            df_long = pd.read_table(data, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser, names=args.header)
         else:
-            df_long = pd.read_table(args.data, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser)
+            df_long = pd.read_table(data, sep=args.delim, parse_dates=[args.datecol], date_parser=date_parser)
 
 
         if isinstance(args.datecol, int):
