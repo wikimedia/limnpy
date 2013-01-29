@@ -80,7 +80,9 @@ class DataSource(object):
     columns['labels'] = None
     default_source['columns'] = columns
 
-    default_source['chart'] = {'chartType' : 'dygraphs'}    
+    default_source['chart'] = {
+            'chartType' : 'dygraphs'
+            'type' : 'timeseries'}    
     
     def __init__(self, limn_id, limn_name, data, labels=None, types=None, date_key='date', date_fmt='%Y/%m/%d'):
         """
