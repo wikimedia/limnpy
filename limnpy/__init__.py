@@ -301,6 +301,27 @@ class Graph(object):
         }
 
 
+    default_metric = {
+        "index": None,
+        "scale": 1,
+        "timespan": {
+            "start": None,
+            "step": None,
+            "end": None
+            },
+        "color": None,
+        "format_axis": None,
+        "label": None,
+        "disabled": False,
+        "visible": True,
+        "format_value": None,
+        "transforms": [],
+        "source_id": None,
+        "chartType": None,
+        "type": "int",
+        "source_col": None
+    }
+
     def __init__(self, id, title, sources, metric_ids=None, slug=None):
         """
         Construct a Python object representing a limn graph.
@@ -318,6 +339,7 @@ class Graph(object):
 
         self.__graph__['id'] = id
         self.__graph__['name'] = title
+        self.__index__ = 0 # metric counter; incremented by add_metric
         if slug is None:
             self.__graph__['slug'] = id
         else:
@@ -330,21 +352,32 @@ class Graph(object):
                 source_id_repeat = itertools.repeat(source.__source__['id'])
                 metric_ids.extend(zip(source_id_repeat,labels))
 
-        color_map = self.get_color_map(len(metric_ids))
 
-        metrics = []
+
         source_dict = {source.__source__['id'] : source for source in sources}
-        for i, (source_id, col_key) in enumerate(metric_ids):
+        for source_id, col_key in metric_ids:
             source = source_dict[source_id]
             try:
-                m = Graph.get_metric(source, i, col_key, color_map[i])
-                metrics.append(m)
+                self.add_metric(source, col_key)
             except ValueError:
                 logger.warning('Could not find column label: %s in datasource: %s', col_key, source.__source__['id'])
-        self.__graph__['data']['metrics'] = metrics
     
+    
+    def add_metric(self, source, col_key, label=None, color=None):
+        """ constructs a limn-compatible dictionary represnting a metric """
+        col_idx = source.__source__['columns']['labels'].index(col_key)
+        metric = copy.deepcopy(self.default_metric)
+        
+        metric['index'] = self.__index__
+        metric['color'] = color
+        metric['label'] = label if label is not None else col_key
+        metric['source_id'] = source.__source__['id']
+        metric['source_col'] = col_idx
+        
+        self.__index__ += 1
+        self.__graph__['data']['metrics'].append(metric)
 
-    def write(self, basedir='.'):
+    def write(self, basedir='.', set_colors=True):
         """
         writes graph JSON file to {basedir}/graphs.
         Args:
@@ -352,6 +385,12 @@ class Graph(object):
                             will create the graphs directory if it doesn not already
                             exist
         """
+
+        if set_colors:
+            # does coloring by default for now
+            color_map = self.get_color_map(len(self.__graph__['data']['metrics']))
+            for i, metric in enumerate(self.__graph__['data']['metrics']):
+                metric['color'] = color_map[i]
 
         graphdir = os.path.join(basedir, 'graphs')
         if not os.path.isdir(graphdir):
