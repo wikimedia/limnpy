@@ -13,8 +13,6 @@ import copy
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-limn_date_fmt = '%Y/%m/%d'
-
 class DataSource(object):
     """
     This class represents a limn datasource including its associated datafile.
@@ -82,9 +80,11 @@ class DataSource(object):
     columns['labels'] = None
     default_source['columns'] = columns
 
-    default_source['chart'] = {'chartType' : 'dygraphs'}    
-
-    def __init__(self, limn_id, limn_name, data, labels=None, types=None, date_key='date'):
+    default_source['chart'] = {
+            'chartType' : 'dygraphs'
+            'type' : 'timeseries'}    
+    
+    def __init__(self, limn_id, limn_name, data, labels=None, types=None, date_key='date', date_fmt='%Y/%m/%d'):
         """
         Constructs a Python representation of Limn (github.com/wikimedia/limn) datasource
         including both the metadata YAML file (known as a datasource) and the associated csv
@@ -104,9 +104,11 @@ class DataSource(object):
             types     (list)      : the javascript/limn types associated with each column of the csv file
                                     mostly this just means `int` and `date`
             date_key  (str)       : name of the column to be used as the date column.  Defaults to 'date'
+            date_fmt  (str)       : date format of the date column.
         """
 
         self.date_key = date_key
+        self.date_fmt = date_fmt
         self.__source__ = copy.deepcopy(DataSource.default_source)
         self.__source__['id'] = limn_id
         self.__source__['name'] = limn_name
@@ -164,7 +166,7 @@ class DataSource(object):
 
         # fill in data dependent keys
         self.__source__['columns']['labels'] = ['date'] + list(self.__data__.columns)
-        str_ind = self.__data__.index.astype(pd.lib.Timestamp).map(lambda ts : ts.strftime(limn_date_fmt))
+        str_ind = self.__data__.index.astype(pd.lib.Timestamp).map(lambda ts : ts.strftime(self.date_fmt))
         if len(str_ind) > 0:
             self.__source__['timespan']['start'] = str_ind[0]
             self.__source__['timespan']['end'] = str_ind[-1]
@@ -185,7 +187,7 @@ class DataSource(object):
         self.infer()
         self.__data__.index = self.__data__.index\
                                            .astype(pd.lib.Timestamp)\
-                                           .map(lambda ts : ts.strftime(limn_date_fmt))
+                                           .map(lambda ts : ts.strftime(self.date_fmt))
 
         # make dirs and write files
         df_dir = os.path.join(basedir, 'datafiles')

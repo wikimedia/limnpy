@@ -21,14 +21,19 @@ just want to write a `datafile` and `datasource` pair without worrying about the
 
 ## Installation
 
-`limnpy` is packaged with setuptools, so you have some options, but I recommend
+`limnpy` is packaged with setuptools, so you have some options, but I recommend either
 
 ````bash
+$ pip install -e git+git://github.com/embr/limnpy.git#egg=limnpy-0.1.0
+````
+or
+````bash
+$ git clone git://github.com/embr/limnpy.git
 $ cd limnpy/
 $ pip install -e .
 ````
 
-to run the tests the following command from inside the main directory:
+run the tests with the following command from inside the main directory:
 
 ````bash
 $ python -m doctest limnpy/__init__.py
@@ -212,4 +217,17 @@ optional arguments:
   --write_graph WRITE_GRAPH
                         whether to write a graph file containing all columns
                         from the datasource (default: False)
+````
+
+Here is a simple example:
+
+````bash
+$ head -n2 test.tsv
+2013-01-01_00   Asia	535984
+2013-01-01_00	Africa	20536
+$ limnify --datefmt="%Y-%m-%d_%H" --pivot --header Hour Continent Count --datecol=Hour test.tsv
+...
+$ head datafiles/test.csv
+date,Africa,Asia,Europe,North America,Oceania,South America,Unknown
+2013/01/01,20536.0,535984.0,1863240.0,1963952.0,86483.0,71855.0,4908.0
 ````
