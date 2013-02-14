@@ -1,19 +1,3 @@
-import csv, yaml, json
-import os, logging
-import datetime
-from operator import itemgetter
-from collections import Sequence, MutableSequence
-import codecs
-#import colorbrewer
-import itertools
-import pandas as pd
-import pprint
-import copy
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-class DataSource(object):
     """
     This class represents a limn datasource including its associated datafile.
     The constructor takes in the datasource id, name and the actual data.
@@ -81,7 +65,7 @@ class DataSource(object):
     default_source['columns'] = columns
 
     default_source['chart'] = {
-            'chartType' : 'dygraphs'
+            'chartType' : 'dygraphs',
             'type' : 'timeseries'}    
     
     def __init__(self, limn_id, limn_name, data, labels=None, types=None, date_key='date', date_fmt='%Y/%m/%d'):
