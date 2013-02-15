@@ -101,7 +101,7 @@ class Graph(object):
         metric['metric']['source_col'] = col_idx
         
         self.__index__ += 1
-        self.__graph__['root']['children'][METRIC_CHILD_ID].append(metric)
+        self.__graph__['root']['children'][Graph.METRIC_CHILD_ID]['children'].append(metric)
 
     def write(self, basedir='.', set_colors=True):
         """
@@ -202,8 +202,8 @@ class Graph(object):
                     "nodeType": "zoom-brush",
                     "disabled": False,
                     "options": {
-                        "allowX": true,
-                        "allowY": true
+                        "allowX": True,
+                        "allowY": True
                     }
                 },
                 {
@@ -212,8 +212,8 @@ class Graph(object):
                     "options": {
                         "dateFormat": "MMM YYYY",
                         "valueFormat": ",.undefineds",
-                        "deltaPercent": true,
-                        "colorDelta": true,
+                        "deltaPercent": True,
+                        "colorDelta": True,
                         "deltaFormat": "+,.undefined%"
                     },
                     "metricRef": 0,
@@ -260,7 +260,7 @@ class Graph(object):
 
     default_metric = {
         "nodeType": "line",
-        "disabled": false,
+        "disabled": False,
         "metric": {
             "source_id": None,
             "source_col": None,
@@ -271,7 +271,7 @@ class Graph(object):
             "stroke": {
                 "width": 2
             },
-            "noLegend": false,
+            "noLegend": False,
             "dateFormat": "MMM YYYY",
             "valueFormat": ",.undefineds"
         }

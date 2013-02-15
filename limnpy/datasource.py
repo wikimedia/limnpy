@@ -10,6 +10,8 @@ import pandas as pd
 import pprint
 import copy
 
+from graph import Graph
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
@@ -64,24 +66,25 @@ class DataSource(object):
     """
 
     default_source = {
-        'id' = None,
-        'slug' = None,
-        'format' = 'csv',
-        'type' = 'timeseries',
-        'url' = None,
-        'name' = '',
-        'shortName' = '',
-        'desc' = '',
-        'notes' = '',
-        'columns' { 
-            'types' = None,
-            'labels' = None
+        'id' : None,
+        'slug' : None,
+        'format' : 'csv',
+        'type' : 'timeseries',
+        'url' : None,
+        'name' : '',
+        'shortName' : '',
+        'desc' : '',
+        'notes' : '',
+        'columns' : { 
+            'types' : None,
+            'labels' : None
         },
-        'timespan' = {
-            'start' = None,
-            'end' = None,
-            'step' = '1d'
-        },
+        'timespan' : {
+            'start' : None,
+            'end' : None,
+            'step' : '1d'
+        }
+    }
     
     def __init__(self, limn_id, limn_name, data, labels=None, types=None, date_key='date', date_fmt='%Y/%m/%d'):
         """
@@ -200,15 +203,15 @@ class DataSource(object):
         logger.debug(pprint.pformat(self.__source__))
 
         ds_dir = os.path.join(basedir, 'datasources')
-        ds_path = os.path.join(ds_dir, self.__source__['id'] + '.yaml')
+        ds_path = os.path.join(ds_dir, self.__source__['id'] + '.json')
         logger.debug('writing datasource to: %s', ds_path)
         if not os.path.exists(ds_dir):
             os.makedirs(ds_dir)
-        yaml_f = open(ds_path, 'w')
+        json_f = open(ds_path, 'w')
 
         # the canonical=True arg keeps pyyaml from turning the str "y" (and others) into True
-        yaml.safe_dump(self.__source__, yaml_f, default_flow_style=False, canonical=True)
-        yaml_f.close()
+        json.dump(self.__source__, json_f, indent=4)
+        json_f.close()
         self.wrote = True
 
 
@@ -224,7 +227,7 @@ class DataSource(object):
         """
         self.infer()
 
-        metric_ids = metric_ids if metric_ids is not None else self.__source__.columns
+        metric_ids = metric_ids if metric_ids is not None else self.__data__.columns
         g = Graph(self.__source__['id'], self.__source__['name'])
         for metric_id in metric_ids:
             g.add_metric(self, metric_id)
