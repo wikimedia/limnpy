@@ -123,7 +123,7 @@ class DataSource(object):
         try:
             self.__data__ = pd.DataFrame(copy.deepcopy(data))
         except:
-            logger.exception('Error constructing DataFrame from data: %s.  See pandas.DataFrame documentation for help', data)
+            raise ValueError('Error constructing DataFrame from data: %s.  See pandas.DataFrame documentation for help' % data)
         # check whether columns are not named or the labels field has been passed in
         if list(self.__data__.columns) == range(len(self.__data__.columns) or labels is not None):
             logger.debug('labels were not set by Pandas, setting manually')

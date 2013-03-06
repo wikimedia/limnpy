@@ -90,8 +90,15 @@ class Graph(object):
     
     
     def add_metric(self, source, col_key, label=None, color=None):
-        """ constructs a limn-compatible dictionary represnting a metric """
-        col_idx = source.__source__['columns']['labels'].index(col_key)
+        """
+        Adds a line, or metric, to the graph object corresponding 
+        to the column `col_key` in the datasource`
+        """
+        try:
+            col_idx = source.__source__['columns']['labels'].index(col_key)
+        except ValueError:
+            logger.warning('could not find column named %s in datasoure:\n%s', col_key, source)
+            return
         metric = copy.deepcopy(self.default_metric)
         
         metric['index'] = self.__index__
@@ -211,10 +218,8 @@ class Graph(object):
                     "disabled": False,
                     "options": {
                         "dateFormat": "MMM YYYY",
-                        "valueFormat": ",.undefineds",
                         "deltaPercent": True,
                         "colorDelta": True,
-                        "deltaFormat": "+,.undefined%"
                     },
                     "metricRef": 0,
                     "target": "latest",
@@ -239,7 +244,6 @@ class Graph(object):
                         "palette": "wmf_projects",
                         "scale": "log",
                         "dateFormat": "MMM YYYY",
-                        "valueFormat": ",.undefineds",
                         "stroke": {
                             "width": 2,
                             "opacity": 1
@@ -273,6 +277,5 @@ class Graph(object):
             },
             "noLegend": False,
             "dateFormat": "MMM YYYY",
-            "valueFormat": ",.undefineds"
         }
     }
