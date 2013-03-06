@@ -24,7 +24,7 @@ just want to write a `datafile` and `datasource` pair without worrying about the
 `limnpy` is packaged with setuptools, so you have some options, but I recommend either
 
 ````bash
-$ pip install -e git+git://github.com/embr/limnpy.git#egg=limnpy-0.1.0
+$ pip install -e git+git://github.com/wikimedia/limnpy.git#egg=limnpy-0.1.0
 ````
 or
 ````bash
