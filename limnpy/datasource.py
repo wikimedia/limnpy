@@ -20,10 +20,10 @@ class DataSource(object):
     """
     This class represents a limn datasource including its associated datafile.
     The constructor takes in the datasource id, name and the actual data.
-    Once the datasource has been constructed, you can add or modify the __data__
-    member which is just a pandas.DataFrame object or the __source__ dictionary
+    Once the datasource has been constructed, you can add or modify the DataSource.data
+    member which is just a pandas.DataFrame object or the DataSource.source dictionary
     which maps directly to the datasource YAML file required by limn.  After
-    modifying the __data__ and __source__ to your liking (or not at all), calling
+    modifying the DataSource.data and DataSource.source to your liking (or not at all), calling
     write() will produce both the YAML and csv files required by limn in the appropriate
     directories ({basedir}/datafiles, {basedir}/datasources).  You can also
     create a graph from the datasource including all of its columns or only a
@@ -45,7 +45,7 @@ class DataSource(object):
         >>> hash(open('doctest_tmp/graphs/test_source.json').read())
         -6063105524197132446
 
-        >>> ds.__source__['id'] = 'test_source_just_x'
+        >>> ds.source['id'] = 'test_source_just_x'
         >>> ds.write_graph(metric_ids=['x'], basedir='doctest_tmp') # just plot x
         >>> hash(open('doctest_tmp/graphs/test_source_just_x.json').read())
         4932947664539037265
@@ -75,10 +75,7 @@ class DataSource(object):
         'shortName' : '',
         'desc' : '',
         'notes' : '',
-        'columns' : { 
-            'types' : None,
-            'labels' : None
-        },
+        'columns' : [],
         'timespan' : {
             'start' : None,
             'end' : None,
@@ -86,7 +83,7 @@ class DataSource(object):
         }
     }
     
-    def __init__(self, limn_id, limn_name, data, labels=None, types=None, date_key='date', date_fmt='%Y/%m/%d'):
+    def __init__(self, limn_id, limn_name, data, limn_group='', labels=None, types=None, date_key='date', date_fmt='%Y/%m/%d'):
         """
         Constructs a Python representation of Limn (github.com/wikimedia/limn) datasource
         including both the metadata YAML file (known as a datasource) and the associated csv
@@ -101,6 +98,9 @@ class DataSource(object):
                                     mapping column names to lists, numpy ndarrays.  See:
                                     http://pandas.pydata.org/pandas-docs/stable/dsintro.html#dataframe
                                     for more information.
+            group     (str)       : directory within which the datasources/datafiles/graphs/dashboards
+                                    directories will be placed on the server.  The value of groups
+                                    will be added to the datafile URL as the second directory in the path
             labels    (list)      : the labels corresponding to the data "columns".  Not required
                                     if the data object
             types     (list)      : the javascript/limn types associated with each column of the csv file
@@ -111,39 +111,39 @@ class DataSource(object):
 
         self.date_key = date_key
         self.date_fmt = date_fmt
-        self.__source__ = copy.deepcopy(DataSource.default_source)
-        self.__source__['id'] = limn_id
-        self.__source__['name'] = limn_name
-        self.__source__['shortName'] = limn_name
-        self.__source__['url'] = '/data/datafiles/' + limn_id + '.csv'
-        self.__source__['columns']['types'] = types
+        self.types = types
+        self.source = copy.deepcopy(DataSource.default_source)
+        self.source['id'] = limn_id
+        self.source['name'] = limn_name
+        self.source['shortName'] = limn_name
+        self.source['url'] = os.path.join('/data/datafiles', limn_group, limn_id + '.csv')
 
-        # NOTE: though we construct the __data__ member here, we allow the possibility
+        # NOTE: though we construct the data member here, we allow the possibility
         # that it will change before we write, so all derived fields get set in infer() which is called by write()
         try:
-            self.__data__ = pd.DataFrame(copy.deepcopy(data))
+            self.data = pd.DataFrame(copy.deepcopy(data))
         except:
             raise ValueError('Error constructing DataFrame from data: %s.  See pandas.DataFrame documentation for help' % data)
         # check whether columns are not named or the labels field has been passed in
-        if list(self.__data__.columns) == range(len(self.__data__.columns) or labels is not None):
+        if list(self.data.columns) == range(len(self.data.columns) or labels is not None):
             logger.debug('labels were not set by Pandas, setting manually')
             # this means the `data` object didn't include column labels
             if labels is not None:
-                self.__data__.rename(columns=dict(enumerate(labels)), inplace=True)
+                self.data.rename(columns=dict(enumerate(labels)), inplace=True)
             else:
                 raise ValueError('`data` does not contain label information, column names must be passed in with the `labels` arg')
 
-        if not isinstance(self.__data__.index, pd.tseries.index.DatetimeIndex):
-            logger.debug('dealing with a DataFrame instance that does NOT have a datetime index.  type(index)=%s', type(self.__data__.index))
+        if not isinstance(self.data.index, pd.tseries.index.DatetimeIndex):
+            logger.debug('dealing with a DataFrame instance that does NOT have a datetime index.  type(index)=%s', type(self.data.index))
             # if `data` is just another pd.DataFrame from a DataSource or datetime-indexed, don't to set index
-            if self.date_key not in self.__data__.columns:
-                raise ValueError('date_key: `%s` must be in column labels: %s\ntype(self.__data__.index): %s, self.__data__.index: %s' %
-                        (date_key, list(self.__data__.columns), type(self.__data__.index), self.__data__.index))
+            if self.date_key not in self.data.columns:
+                raise ValueError('date_key: `%s` must be in column labels: %s\ntype(self.data.index): %s, self.data.index: %s' %
+                        (date_key, list(self.data.columns), type(self.data.index), self.data.index))
             try:
-                self.__data__.set_index(self.date_key, inplace=True)
+                self.data.set_index(self.date_key, inplace=True)
             except:
-                logger.exception('error resetting index because self.__data__.columns=%s', self.__data__.columns)
-                raise ValueError('could not set_index because self.__data__.columns=%s', self.__data__.columns)
+                logger.exception('error resetting index because self.data.columns=%s', self.data.columns)
+                raise ValueError('could not set_index because self.data.columns=%s', self.data.columns)
         self.infer() # can't hurt to infer now. this way we can make graphs before writing the datasource
 
 
@@ -154,28 +154,28 @@ class DataSource(object):
         it and the meta data will accurately reflect any added data
         """
         # parse dates, sort, and format
-        # logger.debug('entering infer with self.__data__:\n%s', self.__data__)
-        self.__data__.index = pd.to_datetime(self.__data__.index)
-        # logger.debug('converted index to timestamps.  self.__data__.index:\n%s', self.__data__.index)
-        # logger.debug('id: %s', self.__source__['id'])
-        # logger.debug('set index to be a datetime index. type(self.__data__.index) = %s', type(self.__data__.index))
+        # logger.debug('entering infer with self.data:\n%s', self.data)
+        self.data.index = pd.to_datetime(self.data.index)
+        # logger.debug('converted index to timestamps.  self.data.index:\n%s', self.data.index)
+        # logger.debug('id: %s', self.source['id'])
+        # logger.debug('set index to be a datetime index. type(self.data.index) = %s', type(self.data.index))
         # logger.debug('id(self) = %s', id(self))
-        self.__data__.sort()
-        # logger.debug('columns: %s', self.__data__.columns)
-        # logger.debug('reverse columns: %s', list(reversed(self.__data__.sum().argsort(order=True))))
-        # self.__data__ = self.__data__[self.__data__.columns[list(reversed(self.__data__.sum().argsort(order=True)))]]
-        logger.debug('self.__data__:\n%s', self.__data__)
-        # self.__data__ = self.__data__.fillna(0) # leaving the NAs in until writing is better so that we can just write ''
+        self.data.sort()
+        # logger.debug('columns: %s', self.data.columns)
+        # logger.debug('reverse columns: %s', list(reversed(self.data.sum().argsort(order=True))))
+        # self.data = self.data[self.data.columns[list(reversed(self.data.sum().argsort(order=True)))]]
+        logger.debug('self.data:\n%s', self.data)
+        # self.data = self.data.fillna(0) # leaving the NAs in until writing is better so that we can just write ''
 
         # fill in data dependent keys
-        self.__source__['columns']['labels'] = ['date'] + list(self.__data__.columns)
-        str_ind = self.__data__.index.astype(pd.lib.Timestamp).map(lambda ts : ts.strftime(self.date_fmt))
+        labels = ['date'] + list(self.data.columns)
+        types = self.types if self.types else ['date'] + ['int'] * len(self.data.columns)
+        self.source['columns'] = [{'label':flabel, 'type':ftype} for flabel, ftype in zip(labels, types)]
+        str_ind = self.data.index.astype(pd.lib.Timestamp).map(lambda ts : ts.strftime(self.date_fmt))
         if len(str_ind) > 0:
-            self.__source__['timespan']['start'] = str_ind[0]
-            self.__source__['timespan']['end'] = str_ind[-1]
-        if self.__source__['columns']['types'] is None:
-            self.__source__['columns']['types'] = ['date'] + ['int'] * len(self.__data__.columns)
-        # logger.debug('exiting infer with self.__data__:\n%s', self.__data__)
+            self.source['timespan']['start'] = str_ind[0]
+            self.source['timespan']['end'] = str_ind[-1]
+        # logger.debug('exiting infer with self.data:\n%s', self.data)
 
 
     def write(self, basedir='.'):
@@ -188,29 +188,29 @@ class DataSource(object):
         """
         
         self.infer()
-        self.__data__.index = self.__data__.index\
+        self.data.index = self.data.index\
                                            .astype(pd.lib.Timestamp)\
                                            .map(lambda ts : ts.strftime(self.date_fmt))
 
         # make dirs and write files
         df_dir = os.path.join(basedir, 'datafiles')
-        df_path = os.path.join(df_dir, self.__source__['id'] + '.csv')
+        df_path = os.path.join(df_dir, self.source['id'] + '.csv')
         logger.debug('writing datafile to: %s', df_path)
         if not os.path.exists(df_dir):
             os.makedirs(df_dir)
-        self.__data__.to_csv(df_path, index_label='date', encoding='utf-8')
+        self.data.to_csv(df_path, index_label='date', encoding='utf-8')
 
-        logger.debug(pprint.pformat(self.__source__))
+        logger.debug(pprint.pformat(self.source))
 
         ds_dir = os.path.join(basedir, 'datasources')
-        ds_path = os.path.join(ds_dir, self.__source__['id'] + '.json')
+        ds_path = os.path.join(ds_dir, self.source['id'] + '.json')
         logger.debug('writing datasource to: %s', ds_path)
         if not os.path.exists(ds_dir):
             os.makedirs(ds_dir)
         json_f = open(ds_path, 'w')
 
         # the canonical=True arg keeps pyyaml from turning the str "y" (and others) into True
-        json.dump(self.__source__, json_f, indent=4)
+        json.dump(self.source, json_f, indent=4)
         json_f.close()
         self.wrote = True
 
@@ -227,8 +227,8 @@ class DataSource(object):
         """
         self.infer()
 
-        metric_ids = metric_ids if metric_ids is not None else self.__data__.columns
-        g = Graph(self.__source__['id'], self.__source__['name'])
+        metric_ids = metric_ids if metric_ids is not None else self.data.columns
+        g = Graph(self.source['id'], self.source['name'])
         for metric_id in metric_ids:
             g.add_metric(self, metric_id)
         return g

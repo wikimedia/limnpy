@@ -62,15 +62,15 @@ ds.write(basedir='../in/a/directory/far/far/away/')
 ````
 
 Just calling the constructor with the appropriate arguments should really handle most cases, 
-but for everything else you can just direclty manipulate the `__source__` and `__data__` fields before calling `write()`.  The
-`__source__` field is just a nested `dict`/`list` object which directly maps to the YAML datasource file
-and the `__data__` attribute returns a reference to the internal `pandas.DataFrame` object which
+but for everything else you can just direclty manipulate the `source` and `data` fields before calling `write()`.  The
+`source` field is just a nested `dict`/`list` object which directly maps to the YAML datasource file
+and the `data` attribute returns a reference to the internal `pandas.DataFrame` object which
 limnpy uses to store the data and labels.  This has the perk of making lots of standard data cleaning/tranforming taks
 relatively easy (if you are familiar with `pandas`)
 
 ````python
-ds_scaled = limnpy.DataSource('scaled', 'Data Scaled by a factor of 1000', ds.__data__ * 1000)
-combined = limnpy.DataSource('combined', 'Combined', pd.merge(ds.__data__, ds_scaled.__data__))
+ds_scaled = limnpy.DataSource('scaled', 'Data Scaled by a factor of 1000', ds.data * 1000)
+combined = limnpy.DataSource('combined', 'Combined', pd.merge(ds.data, ds_scaled.data))
 ````
 
 ### Acceptable Data Formats

@@ -76,17 +76,17 @@ class Graph(object):
         if metric_ids is None:
             metric_ids = []
             for source in sources:
-                labels = set(source.__source__['columns']['labels']) - set(['date'])
-                source_id_repeat = itertools.repeat(source.__source__['id'])
+                labels = set([col['label'] for col in source.source['columns']]) - set(['date'])
+                source_id_repeat = itertools.repeat(source.source['id'])
                 metric_ids.extend(zip(source_id_repeat,labels))
 
-        source_dict = {source.__source__['id'] : source for source in sources}
+        source_dict = {source.source['id'] : source for source in sources}
         for source_id, col_key in metric_ids:
             source = source_dict[source_id]
             try:
                 self.add_metric(source, col_key)
             except ValueError:
-                logger.warning('Could not find column label: %s in datasource: %s', col_key, source.__source__['id'])
+                logger.warning('Could not find column label: %s in datasource: %s', col_key, source.source['id'])
     
     
     def add_metric(self, source, col_key, label=None, color=None):
@@ -95,18 +95,16 @@ class Graph(object):
         to the column `col_key` in the datasource`
         """
         try:
-            col_idx = source.__source__['columns']['labels'].index(col_key)
+            col_idx = [col for col in source.source['columns'] if col['label'] == col_key]
         except ValueError:
             logger.warning('could not find column named %s in datasoure:\n%s', col_key, source)
             return
         metric = copy.deepcopy(self.default_metric)
-        
         metric['index'] = self.__index__
         if label is not None:
             metric['options']['label'] = label
-        metric['metric']['source_id'] = source.__source__['id']
+        metric['metric']['source_id'] = source.source['id']
         metric['metric']['source_col'] = col_idx
-        
         self.__index__ += 1
         self.__graph__['root']['children'][Graph.METRIC_CHILD_ID]['children'].append(metric)
 
