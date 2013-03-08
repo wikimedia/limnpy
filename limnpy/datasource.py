@@ -83,7 +83,16 @@ class DataSource(object):
         }
     }
     
-    def __init__(self, limn_id, limn_name, data, limn_group='', labels=None, types=None, date_key='date', date_fmt='%Y/%m/%d'):
+    def __init__(self,
+            limn_id,
+            limn_name,
+            data,
+            limn_group='',
+            url=None,
+            labels=None,
+            types=None,
+            date_key='date',
+            date_fmt='%Y/%m/%d'):
         """
         Constructs a Python representation of Limn (github.com/wikimedia/limn) datasource
         including both the metadata YAML file (known as a datasource) and the associated csv
@@ -101,6 +110,8 @@ class DataSource(object):
             group     (str)       : directory within which the datasources/datafiles/graphs/dashboards
                                     directories will be placed on the server.  The value of groups
                                     will be added to the datafile URL as the second directory in the path
+            url       (str)       : custom url where datafile will be available.  Defaults to a local
+                                    path on the server `/datafiles/{group}/limn_id.csv`
             labels    (list)      : the labels corresponding to the data "columns".  Not required
                                     if the data object
             types     (list)      : the javascript/limn types associated with each column of the csv file
@@ -116,7 +127,7 @@ class DataSource(object):
         self.source['id'] = limn_id
         self.source['name'] = limn_name
         self.source['shortName'] = limn_name
-        self.source['url'] = os.path.join('/data/datafiles', limn_group, limn_id + '.csv')
+        self.source['url'] = url if url else os.path.join('/data/datafiles', limn_group, limn_id + '.csv')
 
         # NOTE: though we construct the data member here, we allow the possibility
         # that it will change before we write, so all derived fields get set in infer() which is called by write()
