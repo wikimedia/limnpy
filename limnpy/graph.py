@@ -95,7 +95,7 @@ class Graph(object):
         to the column `col_key` in the datasource`
         """
         try:
-            col_idx = [col for col in source.source['columns'] if col['label'] == col_key]
+            col_idx = [i for (i, col) in enumerate(source.source['columns']) if col['label'] == col_key]
         except ValueError:
             logger.warning('could not find column named %s in datasoure:\n%s', col_key, source)
             return
