@@ -95,7 +95,7 @@ class DataSource(object):
             date_fmt='%Y/%m/%d'):
         """
         Constructs a Python representation of Limn (github.com/wikimedia/limn) datasource
-        including both the metadata YAML file (known as a datasource) and the associated csv
+        including both the metadata JSON (optionally YAML) file (known as a datasource) and the associated csv
         file containing the actual content (known as a datafile).
         Args:
             limn_id   (str)       : the id used to uniquely identify this datasource in limn
@@ -230,7 +230,7 @@ class DataSource(object):
         return pprint.pformat(vars(self))
 
 
-    def get_graph(self, metric_ids=None):
+    def get_graph(self, metric_ids=None, title=None, graph_id=None):
         """
         Returns a limnpy.Graph object with each of the (selected) datasource's columns 
         Args:
@@ -238,14 +238,16 @@ class DataSource(object):
         """
         self.infer()
 
-        metric_ids = metric_ids if metric_ids is not None else self.data.columns
-        g = Graph(self.source['id'], self.source['name'])
+        metric_ids = metric_ids if metric_ids else self.data.columns
+        title = title if title else self.source['name']
+        graph_id = graph_id if graph_id else self.source['id']
+        g = Graph(graph_id, title)
         for metric_id in metric_ids:
             g.add_metric(self, metric_id)
         return g
 
 
-    def write_graph(self, metric_ids=None, basedir='.'):
+    def write_graph(self, metric_ids=None, basedir='.', title=None, graph_id=None):
         """
         Writes a graph with the (selected) datasource columns to the graphs dir in the 
         optionally specified basedir (defaults to .)
@@ -254,6 +256,6 @@ class DataSource(object):
             basedir (str)          :  specifies the directory in which to place the datasources
                                       and datafiles directories (defaults to `.`)
         """
-        g = self.get_graph(metric_ids)
+        g = self.get_graph(metric_ids, title=title, graph_id=graph_id)
         g.write(basedir)
         return g
