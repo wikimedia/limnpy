@@ -120,20 +120,23 @@ ds.write_graph(['x'])
 ````
 
 To make a graph which contains columns from more than one DataSeries, you can directly construct an instance of
-`limnpy.Graph`, specify which columns to use from which `DataSource`s with a list of `(datasource_id, col_name)` tuples
-and then calling its `write()` method.
+`limnpy.Graph` by explicitly adding columns one at a time and then calling its `write()` method.
 
 ````python
 rows1 = [[datetime.date(2012, 9, 1), 1, 2],                                                                                                                                                  
          [datetime.date(2012, 10, 1), 7, 9]]                                                                                                                                                  
 s1 = limnpy.DataSource('source1', 'Source 1', rows1, labels=['date', 'x', 'y'])                                                                                                              
-s1.write(basedir='doctest_tmp')                                                                                                                                                              
+s1.write(basedir='doctest_tmp')
+
 rows2 = [[datetime.date(2012, 9, 1), 19, 22],                                                                                                                                                
          [datetime.date(2012, 10, 1), 27, 29]]                                                                                                                                                
 s2 = limnpy.DataSource('source2', 'Source 2', rows2, labels=['date', 'x', 'y'])                                                                                                              
 s2.write(basedir='doctest_tmp')                                                                                                                                                              
-g = limnpy.Graph('my_first_autograph', 'My First Autograph', [s1, s2], [('source1', 'x'), ('source2', 'y')])                                                                                 
-g.write(basedir='doctest_tmp')                                      
+
+g = limnpy.Graph('custom_graom', 'Custom Graph')
+g.add_metric(s1, 'x', 'Custom Label for X')
+g.add_metric(s2, 'y', 'Custom Label for Y')
+g.write()                                      
 ````
 
 ### Dashboards
