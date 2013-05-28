@@ -205,6 +205,7 @@ class DataSource(object):
 
         # make dirs and write files
         df_dir = os.path.join(basedir, 'datafiles')
+        #df_path = os.path.join(df_dir, self.limn_group, self.source['id'] + '.csv')
         df_path = os.path.join(df_dir, self.source['id'] + '.csv')
         logger.debug('writing datafile to: %s', df_path)
         if not os.path.exists(df_dir):

@@ -62,15 +62,15 @@ class Graph(object):
             slug       (str)   : slug used to identify the graph by url (via {domain}/graphs/slug)
                                  defaults to the value of `id`
         """
-        self.__graph__ = copy.deepcopy(Graph.default_graph)
+        self.graph = copy.deepcopy(Graph.default_graph)
 
-        self.__graph__['id'] = id
-        self.__graph__['name'] = title
+        self.graph['id'] = id
+        self.graph['name'] = title
         self.__index__ = 0 # metric counter; incremented by add_metric
         if slug is None:
-            self.__graph__['slug'] = id
+            self.graph['slug'] = id
         else:
-            self.__graph__['slug'] = slug
+            self.graph['slug'] = slug
 
         # construct metric_ids list of tuples for all metrics and all sources
         if metric_ids is None:
@@ -96,8 +96,8 @@ class Graph(object):
         """
         try:
             col_idx = [i for (i, col) in enumerate(source.source['columns']) if col['label'] == col_key][0]
-        except ValueError:
-            logger.warning('could not find column named %s in datasoure:\n%s', col_key, source)
+        except:
+            #logger.warning('could not find column named %s in datasoure:\n%s', col_key, source)
             return
         metric = copy.deepcopy(self.default_metric)
         metric['index'] = self.__index__
@@ -106,7 +106,7 @@ class Graph(object):
         metric['metric']['source_id'] = source.source['id']
         metric['metric']['source_col'] = col_idx
         self.__index__ += 1
-        self.__graph__['root']['children'][Graph.METRIC_CHILD_ID]['children'].append(metric)
+        self.graph['root']['children'][Graph.METRIC_CHILD_ID]['children'].append(metric)
 
     def write(self, basedir='.', set_colors=True):
         """
@@ -119,10 +119,10 @@ class Graph(object):
         graphdir = os.path.join(basedir, 'graphs')
         if not os.path.isdir(graphdir):
             os.mkdir(graphdir)
-        graph_fn = os.path.join(graphdir, self.__graph__['id'] + '.json')
+        graph_fn = os.path.join(graphdir, self.graph['id'] + '.json')
 
         graph_f = codecs.open(graph_fn, encoding='utf-8', mode='w')
-        json.dump(self.__graph__, graph_f, indent=2)
+        json.dump(self.graph, graph_f, indent=2)
         graph_f.close()
     
 
@@ -239,9 +239,9 @@ class Graph(object):
                     "nodeType": "line-group",
                     "disabled": False,
                     "options": {
-                        "palette": "wmf_projects",
-                        "scale": "log",
-                        "dateFormat": "MMM YYYY",
+                        #"palette": "wmf_projects",
+                        #"scale": "log",
+                        #"dateFormat": "MMM YYYY",
                         "stroke": {
                             "width": 2,
                             "opacity": 1
