@@ -26,21 +26,6 @@ just want to write a `datafile` and `datasource` pair without worrying about the
 ````bash
 $ pip install -e git+git://github.com/wikimedia/limnpy.git#egg=limnpy-0.1.0
 ````
-or
-````bash
-$ git clone git://github.com/embr/limnpy.git
-$ cd limnpy/
-$ pip install -e .
-````
-
-run the tests with the following command from inside the main directory:
-
-````bash
-$ python -m doctest limnpy/__init__.py
-````
-
-which shouldn't print anything if all goes well.  The only catch is that it does actually generate files in order
-to run the tests, so you'll want to remove the `limnpy/doctest_tmp` directory after testing.
 
 ## Usage
 
@@ -63,14 +48,30 @@ ds.write(basedir='../in/a/directory/far/far/away/')
 
 Just calling the constructor with the appropriate arguments should really handle most cases, 
 but for everything else you can just direclty manipulate the `source` and `data` fields before calling `write()`.  The
-`source` field is just a nested `dict`/`list` object which directly maps to the YAML datasource file
+`source` field is just a nested `dict`/`list` object which directly maps to the YAML/JSON datasource file
 and the `data` attribute returns a reference to the internal `pandas.DataFrame` object which
 limnpy uses to store the data and labels.  This has the perk of making lots of standard data cleaning/tranforming taks
 relatively easy (if you are familiar with `pandas`)
 
 ````python
 ds_scaled = limnpy.DataSource('scaled', 'Data Scaled by a factor of 1000', ds.data * 1000)
+ds_scaled.write()
 combined = limnpy.DataSource('combined', 'Combined', pd.merge(ds.data, ds_scaled.data))
+````
+
+One brief note about making limnpy work with your specific limn installation.  If your dashboard is called fluff.wmflabs.org a common layout might look like:
+
+````
+limn_install/limn-data
+limn_install/limn-data/datasources/fluff
+limn_install/limn-data/datafiles/fluff
+limn_install/limn-data/graphs/fluff
+````
+
+If this is your setup, you'll need to include the `fluff` directory in the datafile path within your datasouce.  To do this, just add the `limn_group` keyword argument to the `DataSource` constructor like this:
+
+````python
+ds = limnpy.DataSource(limn_id='test_source', limn_name='Test Source', limn_group='fluff', data=rows)
 ````
 
 ### Acceptable Data Formats
@@ -120,20 +121,23 @@ ds.write_graph(['x'])
 ````
 
 To make a graph which contains columns from more than one DataSeries, you can directly construct an instance of
-`limnpy.Graph`, specify which columns to use from which `DataSource`s with a list of `(datasource_id, col_name)` tuples
-and then calling its `write()` method.
+`limnpy.Graph` by explicitly adding columns one at a time and then calling its `write()` method.
 
 ````python
-rows1 = [[datetime.date(2012, 9, 1), 1, 2],                                                                                                                                                  
-         [datetime.date(2012, 10, 1), 7, 9]]                                                                                                                                                  
-s1 = limnpy.DataSource('source1', 'Source 1', rows1, labels=['date', 'x', 'y'])                                                                                                              
-s1.write(basedir='doctest_tmp')                                                                                                                                                              
-rows2 = [[datetime.date(2012, 9, 1), 19, 22],                                                                                                                                                
-         [datetime.date(2012, 10, 1), 27, 29]]                                                                                                                                                
-s2 = limnpy.DataSource('source2', 'Source 2', rows2, labels=['date', 'x', 'y'])                                                                                                              
-s2.write(basedir='doctest_tmp')                                                                                                                                                              
-g = limnpy.Graph('my_first_autograph', 'My First Autograph', [s1, s2], [('source1', 'x'), ('source2', 'y')])                                                                                 
-g.write(basedir='doctest_tmp')                                      
+rows1 = [[datetime.date(2012, 9, 1), 1, 2],
+         [datetime.date(2012, 10, 1), 7, 9]]
+s1 = limnpy.DataSource('source1', 'Source 1', rows1, labels=['date', 'x', 'y'])
+s1.write(basedir='doctest_tmp')
+
+rows2 = [[datetime.date(2012, 9, 1), 19, 22],
+         [datetime.date(2012, 10, 1), 27, 29]]
+s2 = limnpy.DataSource('source2', 'Source 2', rows2, labels=['date', 'x', 'y'])
+s2.write(basedir='doctest_tmp')
+
+g = limnpy.Graph('custom_graom', 'Custom Graph')
+g.add_metric(s1, 'x', 'Custom Label for X')
+g.add_metric(s2, 'y', 'Custom Label for Y')
+g.write()                                      
 ````
 
 ### Dashboards
