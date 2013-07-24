@@ -22,9 +22,9 @@ class DataSource(object):
     The constructor takes in the datasource id, name and the actual data.
     Once the datasource has been constructed, you can add or modify the DataSource.data
     member which is just a pandas.DataFrame object or the DataSource.source dictionary
-    which maps directly to the datasource YAML file required by limn.  After
+    which maps directly to the datasource JSON file required by limn.  After
     modifying the DataSource.data and DataSource.source to your liking (or not at all), calling
-    write() will produce both the YAML and csv files required by limn in the appropriate
+    write() will produce both the JSON and csv files required by limn in the appropriate
     directories ({basedir}/datafiles, {basedir}/datasources).  You can also
     create a graph from the datasource including all of its columns or only a
     subset by calling the write_graph() method.

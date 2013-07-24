@@ -231,7 +231,7 @@ class Graph(object):
                     "disabled": False,
                     "label": "Aug 2012",
                     "options": {
-                        "dateFormat": "MMM YYYY",
+                        "dateFormat": "MMM DD YYYY",
                         "valueFormat": ",.2s"
                     }
                 },
